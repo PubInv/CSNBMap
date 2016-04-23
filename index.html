@@ -8,8 +8,21 @@
     <link href='https://fonts.googleapis.com/css?family=Open+Sans:400,700' rel='stylesheet' type='text/css'>
     <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen">
     <link rel="stylesheet" type="text/css" href="stylesheets/github-light.css" media="screen">
+
+        <!-- Bootstrap -->
+    <link href="css/bootstrap.min.css" rel="stylesheet">
+    <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--[if lt IE 9]>
+      <script src="https://oss.maxcdn.com/html5shiv/3.7.2/html5shiv.min.js"></script>
+      <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
+    <![endif]-->
+    <script src="https://d3js.org/d3.v3.min.js"></script>
   </head>
   <body>
+
+        <div class="container">
+
     <section class="page-header">
       <h1 class="project-name">Vestaready</h1>
       <h2 class="project-tagline">Repo to hold work for 2016 Nasa Space Apps Challenge, seeking teammates!</h2>
@@ -22,17 +35,26 @@
       <h1>Vesta Revealead Challenge: CSNB Mapping Tool</h1>
 
       Basic plan is to put four panes here which allow you to do CSNB mapping, somewhat interactively, of an STL file.
-      <table style="width:100%">
-  <tr>
-    <td>3D Model Viewer</td>
-    <td>Tree Data</td> 
-  </tr>
-  <tr>
-    <td>Tree Editor</td>
-    <td>Final Map</td> 
-  </tr>
-</table>
 
+<div class="row">
+  <div class="col-md-6">
+    <div id="stlview">
+      STL Viewer
+      </div>
+    <div id="treeeditor">
+      Tree editor
+     </div>
+
+    </div>
+  <div class="col-md-6">
+    <div id="treeview">
+      STL Viewer
+      </div>
+    <div id="mapview">
+      STL Viewer
+     </div>
+    </div>
+</div>
       <footer class="site-footer">
         <span class="site-footer-owner"><a href="https://github.com/RobertLRead/VestaReady">Vestaready</a> is maintained by <a href="https://github.com/RobertLRead">RobertLRead</a>.</span>
 
