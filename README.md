@@ -31,15 +31,15 @@ demonstrates dragging.
 Much work remains to be done to make this workable.  Although in a sense it does a very, very minimal form of mapping, it
 needs:
 * The completion of the mapping. I believe this can be done by using map (mostly provided by three.js) to implement the following algorithm:
-** Iterate over each feature/facet of the 3D model,
-** for each feature, determine to which boundary segment it is closest by a distance from the plane of project associated with.
-** I believe the 3-space feature paths MUST be flattend in a segment wise fashion, though the size of the segments may vary.
-** Having chosen the closest segment, compute the closest point and the angle which to "shoot out" the feature from the
+* Iterate over each feature/facet of the 3D model,
+* for each feature, determine to which boundary segment it is closest by a distance from the plane of project associated with.
+* I believe the 3-space feature paths MUST be flattend in a segment wise fashion, though the size of the segments may vary.
+* Having chosen the closest segment, compute the closest point and the angle which to "shoot out" the feature from the
 projection plan OF THAT SEGMENT in 3Space,
-** Shoot parametrically along that angle in the map space, computing distance relative to the encounterable edge of the map.
-** Note that closeness to a boundary is a directional condition; you have to check that you are on the "correct" side of the 
+* Shoot parametrically along that angle in the map space, computing distance relative to the encounterable edge of the map.
+* Note that closeness to a boundary is a directional condition; you have to check that you are on the "correct" side of the
 boundary. This can be done by comparing against the plane projected from the flattened segment to centroid.
-** Complete all features.
+* Complete all features.
 
 This is not a formal specification; there is a fair amount of math left unspecified about how this can actually be done.
 However, I do believe it CAN be fully automated, and that the human can apply creativity in desiging the boundaries, leaving
