@@ -342,8 +342,8 @@ function build_simple_quad_from_input() {
  var nodes = new vis.DataSet([
     {id: 0, label: 'A'},
     {id: 1, label: 'B'},
-    {id: 2, label: 'Cjoined'},
-    {id: 3, label: 'Bprime'}
+    {id: 2, label: 'C'},
+    {id: 3, label: 'Bp'}
   ]);
 
   // create an array with edges
@@ -366,8 +366,6 @@ function build_simple_quad_from_input() {
     var nodes = null;
     var edges = null;
     var network = null;
-    // randomly create some nodes and edges
-// var data = getScaleFreeNetwork(25);
 var data = build_simple_quad_from_input()
     var seed = 2;
 
@@ -392,8 +390,7 @@ var data = build_simple_quad_from_input()
     "smooth": false
   },
 	  physics: {
-    "enabled": false,
-    "minVelocity": 0.75
+    "enabled": false
 	  },
         manipulation: {
           addNode: function (data, callback) {
@@ -515,8 +512,8 @@ function init() {
     plane.receiveShadow = true;
     // ASCII file
     var loader = new THREE.STLLoader();
-    //    loader.load( './models/stl/ascii/VESTAquaddec.stl', function ( geometry ) {
-    loader.load( './models/stl/ascii/spheroid.stl', function ( geometry ) {    
+    loader.load( './models/stl/ascii/VESTAquaddec.stl', function ( geometry ) {
+//    loader.load( './models/stl/ascii/spheroid.stl', function ( geometry ) {    
 	big_geo = geometry;
 
 	var material = new THREE.MeshPhongMaterial( { color: 0xff5533, specular: 0x111111, shininess: 200, vertexColors: THREE.FaceColors } );
