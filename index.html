@@ -14,10 +14,8 @@
       <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
     <![endif]-->
     <script src="https://d3js.org/d3.v3.min.js"></script>
+    <script src="./js/d3-scale.min.js"></script>
 
-    <!-- Attempting to add leaflet here -->
-    <link rel="stylesheet" href="http://cdn.leafletjs.com/leaflet/v0.7.7/leaflet.css" />
-     <script src="http://cdn.leafletjs.com/leaflet/v0.7.7/leaflet.js"></script>
 
 <!-- Attempting to load three.js stl rendering stuff -->
         <script src="./js/three.min.js"></script>
@@ -36,81 +34,181 @@
      <link rel="stylesheet" href="//code.jquery.com/ui/1.11.4/themes/smoothness/jquery-ui.css">
   <script src="//code.jquery.com/ui/1.11.4/jquery-ui.js"></script>
 
+ <style type="text/css">
+    body, select {
+      font: 10pt sans;
+    }
+    #mynetwork {
+      position:relative;
+      width: 800px;
+      height: 600px;
+      border: 1px solid lightgray;
+    }
+    table.legend_table {
+      font-size: 11px;
+      border-width:1px;
+      border-color:#d3d3d3;
+      border-style:solid;
+    }
+    table.legend_table,td {
+      border-width:1px;
+      border-color:#d3d3d3;
+      border-style:solid;
+      padding: 2px;
+    }
+    div.table_content {
+      width:80px;
+      text-align:center;
+    }
+    div.table_description {
+      width:100px;
+    }
+
+    #operation {
+      font-size:28px;
+    }
+    #network-popUp {
+      display:none;
+      position:absolute;
+      top:350px;
+      left:170px;
+      z-index:299;
+      width:250px;
+      height:120px;
+      background-color: #f9f9f9;
+      border-style:solid;
+      border-width:3px;
+      border-color: #5394ed;
+      padding:10px;
+      text-align: center;
+    }
+  </style>
+  <script type="text/javascript" src="./vis/dist/exampleUtil.js"></script>
+  <script type="text/javascript" src="./vis/dist/vis.js"></script>
+  <link href="./vis/dist/vis.css" rel="stylesheet" type="text/css" />
+
 
   </head>
   <style>
-    #mapview { height: 400px; }
+    #mapview { height: 800px; }
     #stlview { height: 800px; width: 800px; }
     #stlrender { height: 800px; width: 800px; }
     </style>
   <body>
 
-        <div class="container">
+    <div class="container">
 
-    <section class="page-header">
-      <h1 class="project-name">Vestaready</h1>
-      <h2 class="project-tagline">Repo to hold work for 2016 Nasa Space Apps Challenge, seeking teammates!</h2>
-    </section>
+      <section class="page-header">
+	<h1 class="project-name">Vestaready</h1>
+	<h2 class="project-tagline">Repo to hold work for 2016 Nasa Space Apps Challenge, seeking teammates!</h2>
+      </section>
 
-    <section class="main-content">
-      <h1>Vesta Revealead Challenge: CSNB Mapping Tool</h1>
+      <section class="main-content">
+	<h1>Vesta Revealead Challenge: CSNB Mapping Tool</h1>
 
-      Basic plan is to put four panes here which allow you to do CSNB mapping, somewhat interactively, of an STL file.
+	<div class="row">
+	  <div class="col-md-12">
+	    <div id="stlview">
+	      STL Viewer
+	    </div>
+	    <h2 class="demoHeaders">Face Number Visualizer</h2>        
+	    <div id="horizSlider"></div>
+	    <p>Low: <span id="lowval"></span> High: Low: <span id="highval"></span> </p>
 
-<div class="row">
-  <div class="col-md-12">
-    <div id="stlview">
-      STL Viewer
-      </div>
-   </div>
+	  </div>
 
-  <div class="col-md-6">
-<h2 class="demoHeaders">Horizontal Slider</h2>
-<div id="horizSlider"></div>
-    <div id="treeeditor">
-      Tree editor
-     </div>
-    </div>
-  <div class="col-md-6">
+	  <div class="row">
+	    <div class="col-md-12">
+	      <div id="treeeditor">
+    Choose three points in 3-space. These will be the nodes of the tree. Point thumb of right hand from A to B to determine
+interior of map, and B to C. For now, map will be unzipped along C and B to create a single quadrilateral shape for map.
+		<p>
+    A: <input class="faceinput" type="text" id="a0">     X: <input type="text" id="a0x">     Y: <input type="text" id="a0y">     Z: <input type="text" id="a0z"> H: <span id="a0h"></span>
+		</p>
+		<p>
+		  B: <input class="faceinput" type="text" id="a1">     X: <input type="text" id="a1x">     Y: <input type="text" id="a1y">     Z: <input type="text" id="a1z"> H: <span id="a1h"></span>
+		</p>
+		<p>
+		  C: <input class="faceinput" type="text" id="a2">     X: <input type="text" id="a2x">     Y: <input type="text" id="a2y">     Z: <input type="text" id="a2z"> H: <span id="a2h"></span>
+		</p>
+	      </div>
+	    </div>
+	  </div>
+	  <div class="row">    
+	    <div class="col-md-12">
     <div id="treeview">
-      Treeview
-      </div>
-    <div id="mapview">
-      MapView
-     </div>
-    </div>
+    <h2>Editing the nodes and edges (localized)</h2>
+<p style="width: 700px; font-size:14px; text-align: justify;">
+  The localization is only relevant to the manipulation buttons.
+</p>
+
+
+<div id="network-popUp">
+  <span id="operation">node</span> <br>
+  <table style="margin:auto;"><tr>
+    <td>id</td><td><input id="node-id" value="new value" /></td>
+  </tr>
+    <tr>
+      <td>label</td><td><input id="node-label" value="new value" /></td>
+    </tr></table>
+  <input type="button" value="save" id="saveButton" />
+  <input type="button" value="cancel" id="cancelButton" />
 </div>
-      <footer class="site-footer">
-        <span class="site-footer-owner"><a href="https://github.com/RobertLRead/VestaReady">Vestaready</a> is maintained by <a href="https://github.com/RobertLRead">RobertLRead</a>.</span>
+<br />
+<div id="mynetwork"></div>
+		Treeview
+	      </div>
+	    </div>
+	  </div>	    
+	  <div class="row">    
+	    <div class="col-md-12">
+	      <div id="mapview">
+		MapView
+	      </div>
+	    </div>
+	  </div>
+	  <footer class="site-footer">
+            <span class="site-footer-owner"><a href="https://github.com/RobertLRead/VestaReady">Vestaready</a> is maintained by <a href="https://github.com/RobertLRead">RobertLRead</a>.</span>
 
-        <span class="site-footer-credits">This page was generated by <a href="https://pages.github.com">GitHub Pages</a> using the <a href="https://github.com/jasonlong/cayman-theme">Cayman theme</a> by <a href="https://twitter.com/jasonlong">Jason Long</a>.
-		
+            <span class="site-footer-credits">This page was generated by <a href="https://pages.github.com">GitHub Pages</a> using the <a href="https://github.com/jasonlong/cayman-theme">Cayman theme</a> by <a href="https://twitter.com/jasonlong">Jason Long</a>.
+	      
 	      <a href="https://github.com/RobertLRead/VestaReady" class="btn">View on GitHub</a>
-      <a href="https://github.com/RobertLRead/VestaReady/zipball/master" class="btn">Download .zip</a>
-      <a href="https://github.com/RobertLRead/VestaReady/tarball/master" class="btn">Download .tar.gz</a>
+	      <a href="https://github.com/RobertLRead/VestaReady/zipball/master" class="btn">Download .zip</a>
+	      <a href="https://github.com/RobertLRead/VestaReady/tarball/master" class="btn">Download .tar.gz</a>
 
-	</span>
+	    </span>
 
 
-      </footer>
+	  </footer>
 
-    </section>
+      </section>
 
-    <!-- Include all compiled plugins (below), or include individual files as needed -->
-    <script src="js/bootstrap.min.js"></script>
+      <!-- Include all compiled plugins (below), or include individual files as needed -->
+      <script src="js/bootstrap.min.js"></script>
   </body>
 </html>
 
-<script>
-  
-function draw(name,title) {
-    
-    var margin = {top: 20*2, right: 20, bottom: 30, left: 40},
+    <script>
+
+// This has no meaning, just initial values for use
+// $("#a0").val("500");
+// $("#a1").val("5000");
+// $("#a2").val("15000");
+
+$("#a0").val("15");
+$("#a1").val("20");
+$("#a2").val("25");
+
+
+function draw_map(name,title,tree) {
+    var w = 700;
+    var h = 700;
+    var margin = {top:40, right: 40, bottom: 40, left: 40},
 	//	width = 960 - margin.left - margin.right,
-	width = 700 - margin.left - margin.right,
-	height = 200 - margin.top - margin.bottom;
+	width = w - margin.left - margin.right,
+	height = h - margin.top - margin.bottom;
 
-
+    $(name).empty();
     var svg = d3.select("body").select(name).append("svg")
         .attr("margin-left",margin.left)
 	.attr("width", width + margin.left + margin.right)
@@ -118,11 +216,13 @@ function draw(name,title) {
 	.append("g")
 	.attr("transform", "translate(" + margin.left + "," + margin.top + ")");
 
-    var x = d3.scale.ordinal()
-	.rangeRoundBands([0, width], .1);
+    var x = d3.scale.linear()
+        .domain([0,1000])
+    	.range([0,width]);
 
     var y = d3.scale.linear()
-    	.range([height, 0]);
+        .domain([0,1000])
+    	.range([height,0]);
 
     var xAxis = d3.svg.axis()
 	.scale(x)
@@ -131,7 +231,6 @@ function draw(name,title) {
     var yAxis = d3.svg.axis()
 	.scale(y)
 	.orient("left")
-	.ticks(10)
     ;
 
     svg.append("g")
@@ -143,11 +242,10 @@ function draw(name,title) {
 	.attr("class", "y axis")
 	.call(yAxis)
 	.append("text")
-	.attr("transform", "rotate(-90)")
+	.attr("transform", "translate(0," + width + ")")
 	.attr("y", 6)
 	.attr("dy", ".71em")
-	.style("text-anchor", "end")
-	.text("Velocity");
+	.style("text-anchor", "end");
 
 
     svg.append("text")
@@ -158,357 +256,208 @@ function draw(name,title) {
         .style("text-decoration", "underline")  
         .text(title);
 
-    return svg;
+    // Now I will attempt just to render the map borders
+    // without doing any other work.
+    // This should be a variable, but is hardwired for now...
+    var positions = network.getPositions([0,1,2,3,4]);
+    // really this should be computed separately
+    var len = 4;
+
+    // Now the map will be the positive cartesian coordinate,
+    // on a scale of 1000 from the greatest distance.
+    // How that maps into the canvas coordinates I'll have to study...
+    var hx = null;
+    var lx = null;
+    var hy = null;
+    var ly = null;
+    // The x,y values here are in the canvas space where they are drawn...
+    for(var i = 0; i < len; i++) {
+	var point = positions[i];
+	// we want to negate all y's coming from the canvas position
+	if (hx === undefined || hx < point.x) {
+	    hx = point.x;
+	}
+	if (lx === undefined || lx > point.x) {
+	    lx = point.x;
+	}
+	if (hy === undefined || hy < -point.y) {
+	    hy = -point.y;
+	}
+	if (ly === undefined || ly > -point.y) {
+	    ly = -point.y;
+	}
+    }
+    
+    function transform(point) {
+	var ret = {};
+	ret.x = ((point.x - lx)/(hx-lx))*1000;
+	// we negate y because the canvas use graphics coords
+	// and we are using cartesian
+	ret.y = ((-point.y - ly)/(hy-ly))*1000;
+	return ret;
     };
-
-draw("mapview","This will be a CSNB map.");
-/*
-var mymap = L.map('mapview').setView([0,0], 13);
-
-center: [51.505, -0.09],
-
-var geojsonFeature = {
-    "type": "Feature",
-    "properties": {
-        "name": "Coors Field",
-        "amenity": "Baseball Stadium",
-        "popupContent": "This is where the Rockies play!"
-    },
-    "geometry": {
-        "type": "Point",
-        "coordinates": [-104.99404, 39.75621]
+    
+    for(var i = 0; i < len; i++) {
+	var source = transform(positions[i % len]);
+	console.log("i : "+i+"x = "+source.x +" "+"y = "+source.y);
+	var target = transform(positions[(i + 1) % len]);
+    	svg.append("line")          // attach a line
+	    .style("stroke", "red")  // colour the line
+	    .attr("x1", x(source.x))     // x position of the first end of the line
+	    .attr("y1", y(source.y))      // y position of the first end of the line
+	    .attr("x2", x(target.x))     // x position of the second end of the line
+	    .attr("y2", y(target.y));    // y position of the second end of the line
     }
+
+function render_point(objpoint,mappoint) {
+    var dist = centroid.distanceTo(mappoint);
+    var d = (dist-lowest)/(highest-lowest);
+    svg.append("circle")
+        .attr("cx", x(objpoint.x))
+        .attr("cy", y(objpoint.y))
+        .attr("r", 10)
+	.style("fill", color_scale(d));
 };
 
-L.geoJson(geojsonFeature).addTo(mymap);
+// We can at least render the points that are nodes in the tree!!!
+for(var i = 0; i < len; i++) {
+    var point = positions[i];
+// This is an awful way to handle this, need to get mapping working
+    var face = $("#a"+(i % 3)).val();
+    var mappoint  = big_geo.vertices[big_geo.faces[face].a];
+    console.log(mappoint);
+    render_point(transform(point),mappoint);
+}    
 
-var myLines = [{
-    "type": "LineString",
-    "coordinates": [[-100, 0], [-105, 45], [-110, 55]]
-}, {
-    "type": "LineString",
-    "coordinates": [[-105, 40], [-110, 45], [-115, 55]]
-}];
-
-var myStyle = {
-    "color": "#ff7800",
-    "weight": 5,
-    "opacity": 0.65
+return svg;
 };
 
-L.geoJson(myLines, {
-    style: myStyle
-}).addTo(mymap);
-
-*/
-
-var freeBus = {
-    "type": "FeatureCollection",
-    "features": [
-        {
-            "type": "Feature",
-            "geometry": {
-                "type": "LineString",
-                "coordinates": [
-                    [-105.00341892242432, 39.75383843460583],
-                    [-105.0008225440979, 39.751891803969535]
-                ]
-            },
-            "properties": {
-                "popupContent": "This is free bus that will take you across downtown.",
-                "underConstruction": false
-            },
-            "id": 1
-        },
-        {
-            "type": "Feature",
-            "geometry": {
-                "type": "LineString",
-                "coordinates": [
-                    [-105.0008225440979, 39.751891803969535],
-                    [-104.99820470809937, 39.74979664004068]
-                ]
-            },
-            "properties": {
-                "popupContent": "This is free bus that will take you across downtown.",
-                "underConstruction": true
-            },
-            "id": 2
-        },
-        {
-            "type": "Feature",
-            "geometry": {
-                "type": "LineString",
-                "coordinates": [
-                    [-104.99820470809937, 39.74979664004068],
-                    [-104.98689651489258, 39.741052354709055]
-                ]
-            },
-            "properties": {
-                "popupContent": "This is free bus that will take you across downtown.",
-                "underConstruction": false
-            },
-            "id": 3
-        }
-    ]
+// network here is a vis.js network!
+function create_map(network) {
+    draw_map("#mapview","This is the final map.",network);
 };
 
-var lightRailStop = {
-    "type": "FeatureCollection",
-    "features": [
-        {
-            "type": "Feature",
-            "properties": {
-                "popupContent": "18th & California Light Rail Stop"
-            },
-            "geometry": {
-                "type": "Point",
-                "coordinates": [-104.98999178409576, 39.74683938093904]
+
+function build_simple_quad_from_input() {
+ var nodes = new vis.DataSet([
+    {id: 0, label: 'A'},
+    {id: 1, label: 'B'},
+    {id: 2, label: 'Cjoined'},
+    {id: 3, label: 'Bprime'}
+  ]);
+
+  // create an array with edges
+  var edges = new vis.DataSet([
+    {from: 0, to: 1},
+    {from: 1, to: 2},
+    {from: 0, to: 3},
+      {from: 3, to: 0},
+     {from: 3, to: 2}      
+  ]);
+
+  // create a network
+  var container = document.getElementById('mynetwork');
+  var data = {
+    nodes: nodes,
+    edges: edges
+  };
+    return data;
+};
+    var nodes = null;
+    var edges = null;
+    var network = null;
+    // randomly create some nodes and edges
+// var data = getScaleFreeNetwork(25);
+var data = build_simple_quad_from_input()
+    var seed = 2;
+
+
+    function destroy() {
+      if (network !== null) {
+        network.destroy();
+        network = null;
+      }
+    }
+
+    function draw() {
+      destroy();
+      nodes = [];
+      edges = [];
+
+      // create a network
+      var container = document.getElementById('mynetwork');
+      var options = {
+        layout: {randomSeed:seed}, // just to make sure the layout is the same when the locale is changed
+  edges: {
+    "smooth": false
+  },
+	  physics: {
+    "enabled": false,
+    "minVelocity": 0.75
+	  },
+        manipulation: {
+          addNode: function (data, callback) {
+            // filling in the popup DOM elements
+            document.getElementById('operation').innerHTML = "Add Node";
+            document.getElementById('node-id').value = data.id;
+            document.getElementById('node-label').value = data.label;
+            document.getElementById('saveButton').onclick = saveData.bind(this, data, callback);
+            document.getElementById('cancelButton').onclick = clearPopUp.bind();
+            document.getElementById('network-popUp').style.display = 'block';
+          },
+          editNode: function (data, callback) {
+            // filling in the popup DOM elements
+            document.getElementById('operation').innerHTML = "Edit Node";
+            document.getElementById('node-id').value = data.id;
+            document.getElementById('node-label').value = data.label;
+            document.getElementById('saveButton').onclick = saveData.bind(this, data, callback);
+            document.getElementById('cancelButton').onclick = cancelEdit.bind(this,callback);
+            document.getElementById('network-popUp').style.display = 'block';
+          },
+          addEdge: function (data, callback) {
+            if (data.from == data.to) {
+              var r = confirm("Do you want to connect the node to itself?");
+              if (r == true) {
+                callback(data);
+              }
             }
-        },{
-            "type": "Feature",
-            "properties": {
-                "popupContent": "20th & Welton Light Rail Stop"
-            },
-            "geometry": {
-                "type": "Point",
-                "coordinates": [-104.98689115047453, 39.747924136466565]
+            else {
+              callback(data);
             }
+          }
         }
-    ]
-};
+      };
+	network = new vis.Network(container, data, options);
+	network.on("dragEnd", function (params) {
+            params.event = "[original event]";
+	    // what we really want to do here is create map!
+	    create_map(network);
+    });
 
-var bicycleRental = {
-    "type": "FeatureCollection",
-    "features": [
-        {
-            "geometry": {
-                "type": "Point",
-                "coordinates": [
-                    -104.9998241,
-                    39.7471494
-                ]
-            },
-            "type": "Feature",
-            "properties": {
-                "popupContent": "This is a B-Cycle Station. Come pick up a bike and pay by the hour. What a deal!"
-            },
-            "id": 51
-        },
-        {
-            "geometry": {
-                "type": "Point",
-                "coordinates": [
-                    -104.9983545,
-                    39.7502833
-                ]
-            },
-            "type": "Feature",
-            "properties": {
-                "popupContent": "This is a B-Cycle Station. Come pick up a bike and pay by the hour. What a deal!"
-            },
-            "id": 52
-        },
-        {
-            "geometry": {
-                "type": "Point",
-                "coordinates": [
-                    -104.9963919,
-                    39.7444271
-                ]
-            },
-            "type": "Feature",
-            "properties": {
-                "popupContent": "This is a B-Cycle Station. Come pick up a bike and pay by the hour. What a deal!"
-            },
-            "id": 54
-        },
-        {
-            "geometry": {
-                "type": "Point",
-                "coordinates": [
-                    -104.9960754,
-                    39.7498956
-                ]
-            },
-            "type": "Feature",
-            "properties": {
-                "popupContent": "This is a B-Cycle Station. Come pick up a bike and pay by the hour. What a deal!"
-            },
-            "id": 55
-        },
-        {
-            "geometry": {
-                "type": "Point",
-                "coordinates": [
-                    -104.9933717,
-                    39.7477264
-                ]
-            },
-            "type": "Feature",
-            "properties": {
-                "popupContent": "This is a B-Cycle Station. Come pick up a bike and pay by the hour. What a deal!"
-            },
-            "id": 57
-        },
-        {
-            "geometry": {
-                "type": "Point",
-                "coordinates": [
-                    -104.9913392,
-                    39.7432392
-                ]
-            },
-            "type": "Feature",
-            "properties": {
-                "popupContent": "This is a B-Cycle Station. Come pick up a bike and pay by the hour. What a deal!"
-            },
-            "id": 58
-        },
-        {
-            "geometry": {
-                "type": "Point",
-                "coordinates": [
-                    -104.9788452,
-                    39.6933755
-                ]
-            },
-            "type": "Feature",
-            "properties": {
-                "popupContent": "This is a B-Cycle Station. Come pick up a bike and pay by the hour. What a deal!"
-            },
-            "id": 74
-        }
-    ]
-};
-
-var campus = {
-    "type": "Feature",
-    "properties": {
-        "popupContent": "This is the Auraria West Campus",
-        "style": {
-            weight: 2,
-            color: "#999",
-            opacity: 1,
-            fillColor: "#B0DE5C",
-            fillOpacity: 0.8
-        }
-    },
-    "geometry": {
-        "type": "MultiPolygon",
-        "coordinates": [
-            [
-                [
-                    [-105.00432014465332, 39.74732195489861],
-                    [-105.00715255737305, 39.74620006835170],
-                    [-105.00921249389647, 39.74468219277038],
-                    [-105.01067161560059, 39.74362625960105],
-                    [-105.01195907592773, 39.74290029616054],
-                    [-105.00989913940431, 39.74078835902781],
-                    [-105.00758171081543, 39.74059036160317],
-                    [-105.00346183776855, 39.74059036160317],
-                    [-105.00097274780272, 39.74059036160317],
-                    [-105.00062942504881, 39.74072235994946],
-                    [-105.00020027160645, 39.74191033368865],
-                    [-105.00071525573731, 39.74276830198601],
-                    [-105.00097274780272, 39.74369225589818],
-                    [-105.00097274780272, 39.74461619742136],
-                    [-105.00123023986816, 39.74534214278395],
-                    [-105.00183105468751, 39.74613407445653],
-                    [-105.00432014465332, 39.74732195489861]
-                ],[
-                    [-105.00361204147337, 39.74354376414072],
-                    [-105.00301122665405, 39.74278480127163],
-                    [-105.00221729278564, 39.74316428375108],
-                    [-105.00283956527711, 39.74390674342741],
-                    [-105.00361204147337, 39.74354376414072]
-                ]
-            ],[
-                [
-                    [-105.00942707061768, 39.73989736613708],
-                    [-105.00942707061768, 39.73910536278566],
-                    [-105.00685214996338, 39.73923736397631],
-                    [-105.00384807586671, 39.73910536278566],
-                    [-105.00174522399902, 39.73903936209552],
-                    [-105.00041484832764, 39.73910536278566],
-                    [-105.00041484832764, 39.73979836621592],
-                    [-105.00535011291504, 39.73986436617916],
-                    [-105.00942707061768, 39.73989736613708]
-                ]
-            ]
-        ]
     }
-};
 
-var coorsField = {
-    "type": "Feature",
-    "properties": {
-        "popupContent": "Coors Field"
-    },
-    "geometry": {
-        "type": "Point",
-        "coordinates": [-104.99404191970824, 39.756213909328125]
+    function clearPopUp() {
+      document.getElementById('saveButton').onclick = null;
+      document.getElementById('cancelButton').onclick = null;
+      document.getElementById('network-popUp').style.display = 'none';
     }
-};
-		var map = L.map('mapview').setView([39.74739, -105], 13);
 
-		L.tileLayer('https://api.tiles.mapbox.com/v4/{id}/{z}/{x}/{y}.png?access_token=pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpandmbXliNDBjZWd2M2x6bDk3c2ZtOTkifQ._QA7i5Mpkd_m30IGElHziw', {
-			maxZoom: 18,
-			attribution: 'Map data &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, ' +
-				'<a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, ' +
-				'Imagery © <a href="http://mapbox.com">Mapbox</a>',
-			id: 'mapbox.light'
-		}).addTo(map);
+    function cancelEdit(callback) {
+      clearPopUp();
+      callback(null);
+    }
 
+    function saveData(data,callback) {
+      data.id = document.getElementById('node-id').value;
+      data.label = document.getElementById('node-label').value;
+      clearPopUp();
+      callback(data);
+    }
 
-		function onEachFeature(feature, layer) {
-			var popupContent = "<p>I started out as a GeoJSON " +
-					feature.geometry.type + ", but now I'm a Leaflet vector!</p>";
+  </script>
 
-			if (feature.properties && feature.properties.popupContent) {
-				popupContent += feature.properties.popupContent;
-			}
-
-			layer.bindPopup(popupContent);
-		}
-
-		L.geoJson([bicycleRental, campus], {
-
-			style: function (feature) {
-				return feature.properties && feature.properties.style;
-			},
-
-			onEachFeature: onEachFeature,
-
-			pointToLayer: function (feature, latlng) {
-				return L.circleMarker(latlng, {
-					radius: 8,
-					fillColor: "#ff7800",
-					color: "#000",
-					weight: 1,
-					opacity: 1,
-					fillOpacity: 0.8
-				});
-			}
-		}).addTo(map);
-
-		L.geoJson(freeBus, {
-
-			filter: function (feature, layer) {
-				if (feature.properties) {
-					// If the property "underConstruction" exists and is true, return false (don't render features under construction)
-					return feature.properties.underConstruction !== undefined ? !feature.properties.underConstruction : true;
-				}
-				return false;
-			},
-
-			onEachFeature: onEachFeature
-		}).addTo(map);
-
-
-</script>
-
-		<script>
+    <script>
+    draw();
     if ( ! Detector.webgl ) Detector.addGetWebGLMessage();
 var container, stats;
 var camera, cameraTarget, scene, renderer;
@@ -516,6 +465,29 @@ var camera, cameraTarget, scene, renderer;
 var bluelow = 0;
 var bluehigh = 0;
 var big_geo = null;
+
+$( ".faceinput" ).change(function() {
+    var id = this.id;
+    var localface = big_geo.faces[this.value];
+    $("#"+this.id+"x").val(big_geo.vertices[localface.a].x);
+    $("#"+this.id+"y").val(big_geo.vertices[localface.a].y);
+    $("#"+this.id+"z").val(big_geo.vertices[localface.a].z);
+});
+
+
+var centroid = null;
+var lowest = null;
+var highest = null;
+var color_scale = null;
+function change_val(id) {
+    var val = $("#"+id).val();
+    var localface = big_geo.faces[val];
+    $("#"+id+"x").val(big_geo.vertices[localface.a].x);
+    $("#"+id+"y").val(big_geo.vertices[localface.a].y);
+    $("#"+id+"z").val(big_geo.vertices[localface.a].z);
+    var dist = centroid.distanceTo(big_geo.vertices[localface.a]);
+    $("#"+id+"h").text(dist);
+}
 
 function init() {
     container = document.createElement( 'div' );
@@ -525,7 +497,8 @@ function init() {
     document.getElementById("stlview").innerHTML = '';
     document.getElementById("stlview").appendChild( container );
 
-    camera = new THREE.PerspectiveCamera( 35, window.innerWidth / window.innerHeight, 1, 15 );
+//    camera = new THREE.PerspectiveCamera( 35, window.innerWidth / window.innerHeight, 1, 15 );
+    camera = new THREE.PerspectiveCamera( 35, 1.0, 1, 15 );
     //    camera.position.set( 3, 0.15, 3 );
     camera.position.set( 1000, 0.15, 300 );
     cameraTarget = new THREE.Vector3( 0, -0.25, 0 );
@@ -542,14 +515,45 @@ function init() {
     plane.receiveShadow = true;
     // ASCII file
     var loader = new THREE.STLLoader();
-    loader.load( './models/stl/ascii/VESTAquaddec.stl', function ( geometry ) {
+    //    loader.load( './models/stl/ascii/VESTAquaddec.stl', function ( geometry ) {
+    loader.load( './models/stl/ascii/spheroid.stl', function ( geometry ) {    
 	big_geo = geometry;
+
 	var material = new THREE.MeshPhongMaterial( { color: 0xff5533, specular: 0x111111, shininess: 200, vertexColors: THREE.FaceColors } );
+
+	var bbox = geometry.boundingBox;
+	var a = new THREE.Vector3( 0, 0, 0 );
+	a.set( bbox.max.x + bbox.min.x, bbox.max.y + bbox.min.y, bbox.max.z + bbox.min.z);
+	a.divideScalar(2.0);
+	centroid = a;
+	change_val("a0");
+	change_val("a1");
+	change_val("a2");
+
+	for(var i = 0; i < geometry.vertices.length; i++) {
+	    var dist = geometry.vertices[i].distanceTo(centroid);
+	    if ((!highest) || (highest < dist)) {
+		    highest = dist;
+	    }
+	    if ((!lowest) || (lowest > dist)) {
+		    lowest = dist;
+	    }
+	}
+	//	color_scale = d3_scale.scalePlasma().domain([lowest,highest]);
+	color_scale = d3_scale.scalePlasma();
+	for(var i = 0; i < geometry.faces.length; i++) {
+	    var v = geometry.vertices[geometry.faces[i].a];
+	    //	    geometry.faces[i].color.set( color_scale(v));
+	    var d = (centroid.distanceTo(v)-lowest)/(highest-lowest);
+	    console.log(color_scale(d));
+	    	    geometry.faces[i].color.setStyle( color_scale(d) );
+	}
+
 	for(var i = 0; i < geometry.faces.length; i++) {
 	    if ((i < bluehigh) && (i >= bluelow))
 		geometry.faces[i].color.setRGB( 0x00,0x00,0xff);
 	}
-
+	
 	$( "#horizSlider" ).slider({
 	    range: true,
 	    min: 0,
@@ -558,6 +562,8 @@ function init() {
 	    stop: function( event, ui ) {
 		bluelow = ui.values[0];
 		bluehigh = ui.values[1];
+		$("#lowval").text(bluelow);
+		$("#highval").text(bluehigh);
 		init();
 	    },
 	    slide: function( event, ui ) {
@@ -566,14 +572,16 @@ function init() {
 	});
 
 	var mesh = new THREE.Mesh( geometry, material );
-	//	mesh.position.set( 0, - 0.25, 0.6 );
-		mesh.position.set( 0, 0.25, 0.3);
-//	mesh.rotation.set( 0, - Math.PI / 2, 0 );
-	//	mesh.scale.set( 0.5, 0.5, 0.5 );
-		mesh.scale.set( 0.01, 0.01, 0.01 );
+	mesh.scale.set( 0.01, 0.01, 0.01 );
 	mesh.castShadow = true;
 	mesh.receiveShadow = true;
+	
 	scene.add( mesh );
+	var hex = 0xff0000;
+	var bbox = new THREE.BoundingBoxHelper( mesh, hex );
+	bbox.update();
+	scene.add( bbox );
+
     } );
 
     loader.myload = function ( parsed, onLoad, onProgress, onError ) {
@@ -583,21 +591,6 @@ function init() {
 	onLoad(parsed);
     };
 
-/*    var parsed = loader.parseASCII( get_cylinder());
-
-
-    loader.myload( parsed, function ( geometry ) {
-	var material = new THREE.MeshPhongMaterial( { color: 0xff5533, specular: 0x111111, shininess: 200 } );
-	var mesh = new THREE.Mesh( geometry, material );
-	//	mesh.position.set( 0, - 0.25, 0.6 );
-//		mesh.position.set( 0.1, 0.1, 0.0);
-//	mesh.rotation.set( 0, - Math.PI / 2, 0 );
-	mesh.scale.set( 0.005, 0.005, 0.005 );
-	mesh.castShadow = true;
-	mesh.receiveShadow = true;
-	scene.add( mesh );
-    } );
-*/
     // Lights
     scene.add( new THREE.HemisphereLight( 0x443333, 0x111122 ) );
     addShadowedLight( 1, 1, 1, 0xffffff, 1.35 );
@@ -654,4 +647,5 @@ $(function(){
     init();
     animate();
 });
-		</script>
+</script>
+
