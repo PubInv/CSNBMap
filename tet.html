@@ -144,7 +144,7 @@ function init_scene() {
 
     // camera
     camera = new THREE.PerspectiveCamera( 35, window.innerWidth / window.innerHeight, 0.5, 10000 );
-    camera.position.set(150, 30, 0);
+    camera.position.set(150, 10, 0);
     camera.quaternion.setFromAxisAngle(new THREE.Vector3(0,1,0), (Math.PI/2));
     scene.add(camera);
 
@@ -378,17 +378,17 @@ function add_ground_plane(world,scene) {
     return [groundBody,mesh];
 }
 
-function create_box_and_mesh(world,scene,mass,v,scale_by) {
+function create_box_and_mesh(world,scene,mass,size,v,scale_by) {
     var mass = 1;
     var body = new CANNON.Body({
         mass: mass
     });
-    var    boxShape = new CANNON.Box(new CANNON.Vec3(6,6,6));
-    var cubeGeo = new THREE.BoxGeometry( 6,6,6 );
+    var    boxShape = new CANNON.Sphere(0.01);
+    var cubeGeo = new THREE.BoxGeometry( size,size,size );
     var cubeMaterial = new THREE.MeshPhongMaterial( { color: 0x0000ff } );
     var mesh = new THREE.Mesh(cubeGeo, cubeMaterial);
     
-    boxBody = new CANNON.Body({ mass: mass });
+    var boxBody = new CANNON.Body({ mass: mass });
     boxBody.addShape(boxShape);
     boxBody.position.set(v.x,v.y,v.z);
     boxBody.mass = 1;
@@ -409,15 +409,36 @@ function create_box_and_mesh(world,scene,mass,v,scale_by) {
     return [boxBody,mesh];
 }
 var spring = [];
+
+Object.size = function(obj) {
+    var size = 0, key;
+    for (key in obj) {
+        if (obj.hasOwnProperty(key)) size++;
+    }
+    return size;
+};
+
+
+function Link() 
+{
+}
+
+function vectorToString(v) {
+    return "["+v.x+","+v.y+","+v.z+"]";
+}
+// toString override added to prototype of Foo class
+Link.prototype.toString = function()
+{
+    
+    return "{ a: "+vectorToString(this.a)+","+
+	"b: "+vectorToString(this.b)+"}";
+}
+
+
 function generate_cube_body_from_geometry(world,scene,geometry,scale_by)
 {
     var results = [];
     
-    var vertices = [
-    ];
-    var indices = [
-
-    ];
     var vindex = 0;
     var mass = 1;
     // I dislike the fact that we don't have specific ids
@@ -428,65 +449,138 @@ function generate_cube_body_from_geometry(world,scene,geometry,scale_by)
     // This is likely to create 6 times more indices than we really need,
     // since we are not de-dupping this..really each face is a set
     // of 3 springs, one face, and we shouldn't add new indices if we don't have to.
+
+    // This probably will should use an Octree or some other spacial system,
+    // but I'll just use a linear list for now...
+    
+    // Here I map vertices to a the number 1.
+    // The goal here is to do O(1) lookup of vertices to the bodies associated with them.
+    // link springs to the correct objects across the entire geometry so
+    // that the whole thing hangs together with no duplication.
+
+
+    // It is a weakness of Javascript that it doesn't implment
+    // various definitions of "equal" as well as LISP does.
+    // It is dangerous to rely on this, but since I am "spiking"
+    // right now I will not implement a properly octree or hash table.
+    var index_map = {};
+
+    var vertex_index = 0;
+
+    function process_vertex(v,objects,results) {
+	console.log("v = "+v.x+", "+v.y+", "+v.z);
+	if (vectorToString(v) in index_map) {
+	    console.log("Found!");	    
+	    // This means that we have already created the object
+	    objects.unshift(index_map[v]);
+	    // now we really don't want to have two objects...
+	    // probably we should change this function...
+	    // but we'll just not return it for now..
+//	    var pair = create_box_and_mesh(world,scene,mass,20,v,scale_by);
+//	    results.unshift([objects[0],pair[1]]);
+	} else {
+	    results.unshift(create_box_and_mesh(world,scene,mass,20,v,scale_by));
+	    objects.unshift(results[0][0]);
+	    index_map[vectorToString(v)] = [ objects[0], vertex_index++ ];
+	}
+    };
+
+    var links_map = new Map();
+    var links = [];
+
+    function add_link_if_not_present(a,b) {
+	var va = vectorToString(a);
+	var vb = vectorToString(b);
+	if ((va in index_map) && (vb in index_map)) {
+	    var obj1 = index_map[va];
+	    var obj2 = index_map[vb];
+	    var obj1i = obj1[1] ;
+	    var obj2i = obj2[1] ;
+	    var link = new Link();
+            if (obj1i < obj2i) {
+		link.a = a;
+		link.b = b;
+	    } else {
+		link.a = b;
+		link.b = a;
+	    }
+	    if (link.toString() in links_map) {
+		console.log(" link is present "+ link);
+	    } else {
+		console.log(" adding link "+ link);		
+		links_map[link.toString()] = link;
+	    }
+	} else {
+	    console.log("a "+a);
+	    console.log("b "+b);
+	}
+    }
+    
     for(var i = 0; i < geometry.faces.length; i++) {
-	var v = geometry.vertices[geometry.faces[i].a];
-	vertices.push(v.z);
-	vertices.push(v.y);
-	vertices.push(v.x);
+	var objects = [];
+	var vertices = [];
+	var indices = [];
+	var v = [];
+	v[0] = geometry.vertices[geometry.faces[i].a];
+	// Indices and Vertices are used to create the trimesh...
+	process_vertex(v[0],objects,results);
+	vertices.push(v[0].z);
+	vertices.push(v[0].y);
+	vertices.push(v[0].x);
 	indices.push(vindex);
-	results.unshift(create_box_and_mesh(world,scene,mass,v,scale_by));	
 	vindex++;
-	var v = geometry.vertices[geometry.faces[i].b];
-	vertices.push(v.z);
-	vertices.push(v.y);
-	vertices.push(v.x);
+	
+	v[1] = geometry.vertices[geometry.faces[i].b];
+	process_vertex(v[1],objects,results);	
+	vertices.push(v[1].z);
+	vertices.push(v[1].y);
+	vertices.push(v[1].x);
 	indices.push(vindex);
-	results.unshift(create_box_and_mesh(world,scene,mass,v,scale_by));	
 	vindex++;
-	var v = geometry.vertices[geometry.faces[i].c];	
-	vertices.push(v.z);
-	vertices.push(v.y);
-	vertices.push(v.x);
+	
+	v[2] = geometry.vertices[geometry.faces[i].c];
+	process_vertex(v[2],objects,results);	
+	vertices.push(v[2].z);
+	vertices.push(v[2].y);
+	vertices.push(v[2].x);
 	indices.push(vindex);
-	results.unshift(create_box_and_mesh(world,scene,mass,v,scale_by));	
 	vindex++;
-	// now how do we represent a face? A trimesh with one facet?
-	// should we add the springs first?
-//	var spring = [];
+	
+	add_link_if_not_present(v[0],v[1]);
+	add_link_if_not_present(v[1],v[2]);
+	add_link_if_not_present(v[2],v[0]);
+    }
+    function distance(a,b) {
+	return Math.sqrt((a.x - b.x)*(a.x - b.x) + (a.y - b.y)*(a.y-b.y) + (a.z-b.z)*(a.z-b.z));
+    }
+    var cnt = 0;
+    for (var key in links_map) {
+        var link = links_map[key];
 	var stiffness = 10;
 	var damping = 0.3;
 	var restlength = 6;
-	spring.push(new CANNON.Spring(results[0][0],results[1][0],{
+	var a = index_map[vectorToString(link.a)][0];
+	var b = index_map[vectorToString(link.b)][0]
+	restlength = distance(link.a,link.b);
+	console.log(restlength);
+	spring.push(new CANNON.Spring(a,b,{
 	    localAnchorA: new CANNON.Vec3(0,0,0),
             localAnchorB: new CANNON.Vec3(0,0,0),
             restLength : restlength,
             stiffness : stiffness,
 	    damping : damping
 	} ));
-
-	spring.push(new CANNON.Spring(results[0][0],results[2][0],{
-	    localAnchorA: new CANNON.Vec3(0,0,0),
-            localAnchorB: new CANNON.Vec3(0,0,0),
-            restLength : restlength,
-            stiffness : stiffness,
-	    damping : damping
-	} ));
-	spring.push(new CANNON.Spring(results[1][0],results[2][0],{
-	    localAnchorA: new CANNON.Vec3(0,0,0),
-            localAnchorB: new CANNON.Vec3(0,0,0),
-            restLength : restlength,
-            stiffness : stiffness,
-	    damping : damping
-	} ));
-	// Compute the force after each step
+	cnt++;
     }
+	
     world.addEventListener("postStep",function(event){
 	for(var i = 0; i < spring.length; i++) {
 	    spring[i].applyForce();
 	}
     });
-
-//    results.push(create_box_and_mesh(world,scene,mass,vec));
+    console.log("links.length "+ Object.size(links_map));
+    console.log("faces.length "+geometry.faces.length);
+    console.log("index.map "+Object.size(index_map));        
     return results;
 }
 
@@ -494,9 +588,9 @@ function add_stl(world,scene) {
 
     var scale_by = 0.1;
     var loader = new THREE.STLLoader();
-//    loader.load( './models/stl/ascii/spheroid.stl', function ( geometry ) {
-    //    loader.load( './models/stl/ascii/Lowpolyellipsoid.stl', function ( geometry ) {
-        loader.load( './models/stl/ascii/rectoid.stl', function ( geometry ) {
+    loader.load( './models/stl/ascii/spheroid.stl', function ( geometry ) {
+//        loader.load( './models/stl/ascii/Lowpolyellipsoid.stl', function ( geometry ) {
+//        loader.load( './models/stl/ascii/rectoid.stl', function ( geometry ) {
 	var big_geo = geometry;
 
 	var material = new THREE.MeshPhongMaterial( { color: 0xff5533, specular: 0x111111, shininess: 200, vertexColors: THREE.FaceColors } );
