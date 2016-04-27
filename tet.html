@@ -56,7 +56,7 @@ function create_box(world,scene,i) {
     var cubeGeo = new THREE.BoxGeometry( 1, 1, 1, 10, 10 );
     var cubeMaterial = new THREE.MeshPhongMaterial( { color: 0x888888 } );
     
-    cubeMesh = new THREE.Mesh(cubeGeo, cubeMaterial);
+    var cubeMesh = new THREE.Mesh(cubeGeo, cubeMaterial);
     cubeMesh.castShadow = true;
     scene.add(cubeMesh);
     return [boxBody,cubeMesh];
@@ -144,7 +144,7 @@ function init_scene() {
 
     // camera
     camera = new THREE.PerspectiveCamera( 30, window.innerWidth / window.innerHeight, 0.5, 10000 );
-    camera.position.set(30, 2, 0);
+    camera.position.set(80, 2, 0);
     camera.quaternion.setFromAxisAngle(new THREE.Vector3(0,1,0), Math.PI/2);
     scene.add(camera);
 
@@ -377,6 +377,116 @@ function add_ground_plane(world,scene) {
     // you can't select the floor.
     return [groundBody,mesh];
 }
+function generate_cube_body_from_geometry(world,scene,geometry,scale_by)
+{
+    var vertices = [
+    ];
+    var indices = [
+
+    ];
+    var vindex = 0;
+    // I dislike the fact that we don't have specific ids
+    // here, it seems fagile.  Certainly splitting will be delicate.
+    // We can probably keep "side" data to associate the indices
+    // with specific keys to keep map features....but that it is for later on.
+    for(var i = 0; i < geometry.faces.length; i++) {
+	var v = geometry.vertices[geometry.faces[i].a];
+	vertices.push(v.z);
+	vertices.push(v.y);
+	vertices.push(v.x);
+	indices.push(vindex);
+	vindex++;
+	var v = geometry.vertices[geometry.faces[i].b];
+	vertices.push(v.z);
+	vertices.push(v.y);
+	vertices.push(v.x);
+	indices.push(vindex);	
+	vindex++;
+	var v = geometry.vertices[geometry.faces[i].c];	
+	vertices.push(v.z);
+	vertices.push(v.y);
+	vertices.push(v.x);
+	indices.push(vindex);	
+	vindex++;
+    }
+    var mass = 1;
+    var body = new CANNON.Body({
+        mass: mass
+    });
+    //    var trimeshShape = new CANNON.Trimesh(vertices, indices);
+    //    body.addShape(trimeshShape);
+    var    boxShape = new CANNON.Box(new CANNON.Vec3(1,1,1));
+    
+    boxBody = new CANNON.Body({ mass: mass });
+    boxBody.addShape(boxShape);
+    boxBody.position.set(20,20,0);
+    boxBody.mass = 1;
+    boxBody.angularDamping = 0.9;
+    boxBody.linearDamping = 0.9;
+    
+    world.add(boxBody);
+    
+
+    
+    var bbox = geometry.boundingBox;
+
+    var cubeGeo = new THREE.BoxGeometry( bbox.max.x-bbox.min.x,bbox.max.y-bbox.min.y,bbox.max.z-bbox.min.z );
+    var cubeMaterial = new THREE.MeshPhongMaterial( { color: 0x0000ff } );
+    var mesh = new THREE.Mesh(cubeGeo, cubeMaterial);
+    
+    mesh.castShadow = true;
+    mesh.scale.set(scale_by, scale_by, scale_by );
+    
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    scene.add(mesh);
+    
+    return [[boxBody,mesh]];
+}
+
+function add_stl(world,scene) {
+
+    var scale_by = 0.1;
+    var loader = new THREE.STLLoader();
+//    loader.load( './models/stl/ascii/spheroid.stl', function ( geometry ) {
+    loader.load( './models/stl/ascii/Lowpolyellipsoid.stl', function ( geometry ) {
+	var big_geo = geometry;
+
+	var material = new THREE.MeshPhongMaterial( { color: 0xff5533, specular: 0x111111, shininess: 200, vertexColors: THREE.FaceColors } );
+
+	var bbox = geometry.boundingBox;
+	var a = new THREE.Vector3( 0, 0, 0 );
+	a.set( bbox.max.x + bbox.min.x, bbox.max.y + bbox.min.y, bbox.max.z + bbox.min.z);
+	a.divideScalar(2.0);
+	centroid = a;
+	var highest,lowest;
+	for(var i = 0; i < geometry.vertices.length; i++) {
+	    var dist = geometry.vertices[i].distanceTo(centroid);
+	    if ((!highest) || (highest < dist)) {
+		highest = dist;
+	    }
+	    if ((!lowest) || (lowest > dist)) {
+		lowest = dist;
+	    }
+	}
+	color_scale = d3_scale.scalePlasma();
+	for(var i = 0; i < geometry.faces.length; i++) {
+	    // For low poly, this should take the mean!
+	    var v = geometry.vertices[geometry.faces[i].a];
+	    var d = (centroid.distanceTo(v)-lowest)/(highest-lowest);
+	    geometry.faces[i].color.setStyle( color_scale(d) );
+	}
+
+	var pairings = generate_cube_body_from_geometry(world,scene,geometry,scale_by)
+	
+	// The timing here is making this asynchronous, which is not ideal...
+	pairings.forEach(function (item) {
+	    push_body_mesh_pair(item[0],item[1]);
+	});
+
+    } );
+}
+
 function initCannon(scene){
     // Setup our world
     world = new CANNON.World();
@@ -389,6 +499,10 @@ function initCannon(scene){
     add_tet_model(world,scene);
 
     add_ground_plane(world,scene);
+
+    add_stl(world,scene);
+    
+//   
 
 // Now that we have that working, let's trying loading some STL    
     var loader = new THREE.STLLoader();
