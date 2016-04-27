@@ -143,9 +143,9 @@ function init_scene() {
     scene.fog = new THREE.Fog( 0x000000, 500, 10000 );
 
     // camera
-    camera = new THREE.PerspectiveCamera( 30, window.innerWidth / window.innerHeight, 0.5, 10000 );
-    camera.position.set(80, 2, 0);
-    camera.quaternion.setFromAxisAngle(new THREE.Vector3(0,1,0), Math.PI/2);
+    camera = new THREE.PerspectiveCamera( 35, window.innerWidth / window.innerHeight, 0.5, 10000 );
+    camera.position.set(150, 30, 0);
+    camera.quaternion.setFromAxisAngle(new THREE.Vector3(0,1,0), (Math.PI/2));
     scene.add(camera);
 
     // lights
@@ -377,62 +377,28 @@ function add_ground_plane(world,scene) {
     // you can't select the floor.
     return [groundBody,mesh];
 }
-function generate_cube_body_from_geometry(world,scene,geometry,scale_by)
-{
-    var vertices = [
-    ];
-    var indices = [
 
-    ];
-    var vindex = 0;
-    // I dislike the fact that we don't have specific ids
-    // here, it seems fagile.  Certainly splitting will be delicate.
-    // We can probably keep "side" data to associate the indices
-    // with specific keys to keep map features....but that it is for later on.
-    for(var i = 0; i < geometry.faces.length; i++) {
-	var v = geometry.vertices[geometry.faces[i].a];
-	vertices.push(v.z);
-	vertices.push(v.y);
-	vertices.push(v.x);
-	indices.push(vindex);
-	vindex++;
-	var v = geometry.vertices[geometry.faces[i].b];
-	vertices.push(v.z);
-	vertices.push(v.y);
-	vertices.push(v.x);
-	indices.push(vindex);	
-	vindex++;
-	var v = geometry.vertices[geometry.faces[i].c];	
-	vertices.push(v.z);
-	vertices.push(v.y);
-	vertices.push(v.x);
-	indices.push(vindex);	
-	vindex++;
-    }
+function create_box_and_mesh(world,scene,mass,v,scale_by) {
     var mass = 1;
     var body = new CANNON.Body({
         mass: mass
     });
-    //    var trimeshShape = new CANNON.Trimesh(vertices, indices);
-    //    body.addShape(trimeshShape);
-    var    boxShape = new CANNON.Box(new CANNON.Vec3(1,1,1));
+    var    boxShape = new CANNON.Box(new CANNON.Vec3(6,6,6));
+    var cubeGeo = new THREE.BoxGeometry( 6,6,6 );
+    var cubeMaterial = new THREE.MeshPhongMaterial( { color: 0x0000ff } );
+    var mesh = new THREE.Mesh(cubeGeo, cubeMaterial);
     
     boxBody = new CANNON.Body({ mass: mass });
     boxBody.addShape(boxShape);
-    boxBody.position.set(20,20,0);
+    boxBody.position.set(v.x,v.y,v.z);
     boxBody.mass = 1;
     boxBody.angularDamping = 0.9;
     boxBody.linearDamping = 0.9;
     
     world.add(boxBody);
     
-
-    
     var bbox = geometry.boundingBox;
 
-    var cubeGeo = new THREE.BoxGeometry( bbox.max.x-bbox.min.x,bbox.max.y-bbox.min.y,bbox.max.z-bbox.min.z );
-    var cubeMaterial = new THREE.MeshPhongMaterial( { color: 0x0000ff } );
-    var mesh = new THREE.Mesh(cubeGeo, cubeMaterial);
     
     mesh.castShadow = true;
     mesh.scale.set(scale_by, scale_by, scale_by );
@@ -440,8 +406,88 @@ function generate_cube_body_from_geometry(world,scene,geometry,scale_by)
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     scene.add(mesh);
+    return [boxBody,mesh];
+}
+var spring = [];
+function generate_cube_body_from_geometry(world,scene,geometry,scale_by)
+{
+    var results = [];
     
-    return [[boxBody,mesh]];
+    var vertices = [
+    ];
+    var indices = [
+
+    ];
+    var vindex = 0;
+    var mass = 1;
+    // I dislike the fact that we don't have specific ids
+    // here, it seems fagile.  Certainly splitting will be delicate.
+    // We can probably keep "side" data to associate the indices
+    // with specific keys to keep map features....but that it is for later on.
+
+    // This is likely to create 6 times more indices than we really need,
+    // since we are not de-dupping this..really each face is a set
+    // of 3 springs, one face, and we shouldn't add new indices if we don't have to.
+    for(var i = 0; i < geometry.faces.length; i++) {
+	var v = geometry.vertices[geometry.faces[i].a];
+	vertices.push(v.z);
+	vertices.push(v.y);
+	vertices.push(v.x);
+	indices.push(vindex);
+	results.unshift(create_box_and_mesh(world,scene,mass,v,scale_by));	
+	vindex++;
+	var v = geometry.vertices[geometry.faces[i].b];
+	vertices.push(v.z);
+	vertices.push(v.y);
+	vertices.push(v.x);
+	indices.push(vindex);
+	results.unshift(create_box_and_mesh(world,scene,mass,v,scale_by));	
+	vindex++;
+	var v = geometry.vertices[geometry.faces[i].c];	
+	vertices.push(v.z);
+	vertices.push(v.y);
+	vertices.push(v.x);
+	indices.push(vindex);
+	results.unshift(create_box_and_mesh(world,scene,mass,v,scale_by));	
+	vindex++;
+	// now how do we represent a face? A trimesh with one facet?
+	// should we add the springs first?
+//	var spring = [];
+	var stiffness = 10;
+	var damping = 0.3;
+	var restlength = 6;
+	spring.push(new CANNON.Spring(results[0][0],results[1][0],{
+	    localAnchorA: new CANNON.Vec3(0,0,0),
+            localAnchorB: new CANNON.Vec3(0,0,0),
+            restLength : restlength,
+            stiffness : stiffness,
+	    damping : damping
+	} ));
+
+	spring.push(new CANNON.Spring(results[0][0],results[2][0],{
+	    localAnchorA: new CANNON.Vec3(0,0,0),
+            localAnchorB: new CANNON.Vec3(0,0,0),
+            restLength : restlength,
+            stiffness : stiffness,
+	    damping : damping
+	} ));
+	spring.push(new CANNON.Spring(results[1][0],results[2][0],{
+	    localAnchorA: new CANNON.Vec3(0,0,0),
+            localAnchorB: new CANNON.Vec3(0,0,0),
+            restLength : restlength,
+            stiffness : stiffness,
+	    damping : damping
+	} ));
+	// Compute the force after each step
+    }
+    world.addEventListener("postStep",function(event){
+	for(var i = 0; i < spring.length; i++) {
+	    spring[i].applyForce();
+	}
+    });
+
+//    results.push(create_box_and_mesh(world,scene,mass,vec));
+    return results;
 }
 
 function add_stl(world,scene) {
@@ -449,7 +495,8 @@ function add_stl(world,scene) {
     var scale_by = 0.1;
     var loader = new THREE.STLLoader();
 //    loader.load( './models/stl/ascii/spheroid.stl', function ( geometry ) {
-    loader.load( './models/stl/ascii/Lowpolyellipsoid.stl', function ( geometry ) {
+    //    loader.load( './models/stl/ascii/Lowpolyellipsoid.stl', function ( geometry ) {
+        loader.load( './models/stl/ascii/rectoid.stl', function ( geometry ) {
 	var big_geo = geometry;
 
 	var material = new THREE.MeshPhongMaterial( { color: 0xff5533, specular: 0x111111, shininess: 200, vertexColors: THREE.FaceColors } );
