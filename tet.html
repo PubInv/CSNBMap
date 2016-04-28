@@ -158,8 +158,9 @@ function establish_controls(camera,container) {
     //controls.addEventListener( 'change', render ); // add this only if there is no animation loop (requestAnimationFrame)
     controls.enableDamping = true;
     controls.dampingFactor = 0.25;
-    controls.enableZoom = false;
-    controls.enabled = false;
+    controls.enableZoom = true;
+    controls.enabled = true;
+
 }
 function init_scene() {
     projector = new THREE.Projector();
@@ -179,7 +180,7 @@ function init_scene() {
     camera.quaternion.setFromAxisAngle(new THREE.Vector3(0,1,0), (Math.PI/2));
 
 
-//    establish_controls(camera,container);
+    establish_controls(camera,container);
     
     scene.add(camera);
 
@@ -257,16 +258,16 @@ function addShadowedLight( x, y, z, color, intensity ) {
 // This needs to be changed to init the floor and ground together...
 function finish_scene_preparation(schen) {
     // floor
-    geometry = new THREE.PlaneGeometry( 200, 200, 1, 1 );
-    geometry.applyMatrix( new THREE.Matrix4().makeRotationX( -Math.PI / 2 ) );
+//    geometry = new THREE.PlaneGeometry( 200, 200, 1, 1 );
+//    geometry.applyMatrix( new THREE.Matrix4().makeRotationX( -Math.PI / 2 ) );
     material = new THREE.MeshLambertMaterial( { color: 0x777777 } );
     markerMaterial = new THREE.MeshLambertMaterial( { color: 0xff0000 } );
 //    THREE.ColorUtils.adjustHSV( material.color, 0, 0, 0.9 );
-    mesh = new THREE.Mesh( geometry, material );
-    mesh.castShadow = true;
-    mesh.quaternion.setFromAxisAngle(new THREE.Vector3(1,0,0), -Math.PI / 2);
-    mesh.receiveShadow = true;
-    scene.add(mesh);
+//    mesh = new THREE.Mesh( geometry, material );
+//    mesh.castShadow = true;
+//    mesh.quaternion.setFromAxisAngle(new THREE.Vector3(1,0,0), -Math.PI / 2);
+//    mesh.receiveShadow = true;
+//    scene.add(mesh);
 
     renderer = new THREE.WebGLRenderer( { antialias: true } );
     renderer.setSize( window.innerWidth, window.innerHeight );
@@ -383,6 +384,7 @@ function setScreenPerpCenter(point, camera) {
     }
     gplane.visible = true;
     gplane.name = "movementplane";
+    controls.enabled = false;
 
     // Center at mouse position
     gplane.position.copy(point);
@@ -398,11 +400,15 @@ function onMouseUp(e) {
 
     // Send the remove mouse joint to server
     removeJointConstraint();
-    gplane.visible = false;
-    gplane.name = "movementplane";
-    gplane.transparent = true;
-    gplane.opacity = 0.01;
-    
+
+    if (gplane.visible == true) {
+	gplane.visible = false;
+	// We need to re-establish the controls because I don't have
+	// any good way of exiting the active state...
+	controls.dispose();
+	establish_controls(camera,container);
+    }
+
 }
 
 var lastx,lasty,last;
@@ -490,7 +496,6 @@ function updatePhysics(){
         meshes[i].quaternion.copy(bodies[i].quaternion);
     }
 }
-var add_scene = false; // This is just for debugging
 function render() {
     //    controls.update();
     set_geometry_from_bodies(big_geo,bodies);
@@ -562,7 +567,7 @@ function create_box_and_mesh(world,scene,mass,size,v,scale_by) {
     
     world.add(boxBody);
     
-    var bbox = geometry.boundingBox;
+//    var bbox = geometry.boundingBox;
 
     
     mesh.castShadow = true;
