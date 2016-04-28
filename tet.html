@@ -18,7 +18,8 @@
         <script src="./js/Detector.js"></script>
 	<script src="./js/cannon.js"></script>	
         <script src="./js/STLLoader.js"></script>
-	<script src="./js/d3-scale.min.js"></script>
+    <script src="./js/d3-scale.min.js"></script>
+	<script src="./js/TrackballControls.js"></script>    
 
         <script>
 var world;
@@ -29,13 +30,33 @@ var camera, scene, renderer, gplane=false, clickMarker=false;
 var geometry, material, mesh;
 var controls,time = Date.now();
 
+var MARGIN = 0;
+var SCREEN_WIDTH = window.innerWidth;
+var SCREEN_HEIGHT = window.innerHeight - 2 * MARGIN;
+
 var jointBody, constrainedBody, mouseConstraint;
 
 var N = 4;
 
+var highest,lowest;
+
 var container, camera, scene, renderer, projector;
 
 var meshes=[], bodies=[];
+
+var global_computed_mesh;
+
+// This is really important.  Somehow we have to compute
+// this and keep it up to date.  The initial computation from the .STL file,
+// but as we change the model we have to change it.
+// It is therefore critical that we have a function to compute it from
+// the bodies...which means, at a mimimum that physical model correctly
+// maps back to this.
+// What I think this means is that it is realy imperative
+// that we have clear identifies for the vertices in our model,
+// and the faces associated between them.
+// The index of the vertices in the geometry object is really critical here.
+var big_geo;
 
 function push_body_mesh_pair(body,mesh) {
     meshes.push(mesh);
@@ -152,10 +173,35 @@ function init_scene() {
     var light, materials;
     scene.add( new THREE.AmbientLight( 0x666666 ) );
 
+
+    scene.add( new THREE.HemisphereLight( 0x443333, 0x111122 ) );
+//    addShadowedLight( 1, 1, 1, 0xffffff, 1.35 );
+//    addShadowedLight( 0.5, 1, -1, 0xffaa00, 1 );
+    
+    light = new THREE.DirectionalLight( 0xffffff, 1.75 );
+    var d = 200;
+
+    light.position.set( d, d, d );
+
+    light.castShadow = true;
+    //light.shadowCameraVisible = true;
+
+    light.shadowMapWidth = 1024;
+    light.shadowMapHeight = 1024;
+
+    light.shadowCameraLeft = -d;
+    light.shadowCameraRight = d;
+    light.shadowCameraTop = d;
+    light.shadowCameraBottom = -d;
+
+    light.shadowCameraFar = 3*d;
+    light.shadowCameraNear = d;
+    light.shadowDarkness = 0.5;
+
     light = new THREE.DirectionalLight( 0xffffff, 1.75 );
     var d = 20;
 
-    light.position.set( d, d, d );
+    light.position.set( -d, d, -d );
 
     light.castShadow = true;
     //light.shadowCameraVisible = true;
@@ -176,15 +222,32 @@ function init_scene() {
     return scene;
 }
 
+function addShadowedLight( x, y, z, color, intensity ) {
+    var directionalLight = new THREE.DirectionalLight( color, intensity );
+    directionalLight.position.set( x, y, z );
+    scene.add( directionalLight );
+    directionalLight.castShadow = true;
+    var d = 1;
+    directionalLight.shadow.camera.left = -d;
+    directionalLight.shadow.camera.right = d;
+    directionalLight.shadow.camera.top = d;
+    directionalLight.shadow.camera.bottom = -d;
+    directionalLight.shadow.camera.near = 1;
+    directionalLight.shadow.camera.far = 4;
+    directionalLight.shadow.mapSize.width = 1024;
+    directionalLight.shadow.mapSize.height = 1024;
+    directionalLight.shadow.bias = -0.005;
+}
+
 
 // This needs to be changed to init the floor and ground together...
 function finish_scene_preparation(schen) {
     // floor
     geometry = new THREE.PlaneGeometry( 100, 100, 1, 1 );
-    //geometry.applyMatrix( new THREE.Matrix4().makeRotationX( -Math.PI / 2 ) );
+    geometry.applyMatrix( new THREE.Matrix4().makeRotationX( -Math.PI / 2 ) );
     material = new THREE.MeshLambertMaterial( { color: 0x777777 } );
     markerMaterial = new THREE.MeshLambertMaterial( { color: 0xff0000 } );
-    //THREE.ColorUtils.adjustHSV( material.color, 0, 0, 0.9 );
+//    THREE.ColorUtils.adjustHSV( material.color, 0, 0, 0.9 );
     mesh = new THREE.Mesh( geometry, material );
     mesh.castShadow = true;
     mesh.quaternion.setFromAxisAngle(new THREE.Vector3(1,0,0), -Math.PI / 2);
@@ -206,6 +269,23 @@ function finish_scene_preparation(schen) {
     window.addEventListener("mousemove", onMouseMove, false );
     window.addEventListener("mousedown", onMouseDown, false );
     window.addEventListener("mouseup", onMouseUp, false );
+
+         // Trackball controls
+/*        controls = new THREE.TrackballControls( camera, renderer.domElement );
+        controls.rotateSpeed = 1.0;
+        controls.zoomSpeed = 1.2;
+        controls.panSpeed = 0.2;
+        controls.noZoom = false;
+        controls.noPan = false;
+        controls.staticMoving = false;
+        controls.dynamicDampingFactor = 0.3;
+        var radius = 100;
+        controls.minDistance = 0.0;
+        controls.maxDistance = radius * 1000;
+        //controls.keys = [ 65, 83, 68 ]; // [ rotateKey, zoomKey, panKey ]
+        controls.screen.width = SCREEN_WIDTH;
+        controls.screen.height = SCREEN_HEIGHT;
+*/
 }
 
 function setClickMarker(x,y,z) {
@@ -235,6 +315,12 @@ function onMouseMove(e){
 
 function onMouseDown(e){
     // Find mesh from a ray
+  console.log(e); // you can inspect the click event
+
+//    if (e.which === 3) { // right click = 3, left click = 1
+//        alert("right click");
+//    }
+    
     var entity = findNearestIntersectingObject(e.clientX,e.clientY,camera,meshes);
     var pos = entity.point;
     if(pos && entity.object.geometry instanceof THREE.BoxGeometry){
@@ -323,6 +409,14 @@ function onWindowResize() {
     camera.updateProjectionMatrix();
     //controls.handleResize();
     renderer.setSize( window.innerWidth, window.innerHeight );
+
+         SCREEN_WIDTH = window.innerWidth;
+        SCREEN_HEIGHT = window.innerHeight;
+
+//        controls.screen.width = SCREEN_WIDTH;
+//        controls.screen.height = SCREEN_HEIGHT;
+
+        camera.radius = ( SCREEN_WIDTH + SCREEN_HEIGHT ) / 4;
 }
 
 function animate() {
@@ -339,8 +433,22 @@ function updatePhysics(){
         meshes[i].quaternion.copy(bodies[i].quaternion);
     }
 }
-
+var add_scene = false; // This is just for debugging
 function render() {
+    //    controls.update();
+    set_geometry_from_bodies(big_geo,bodies);
+
+    var mesh = generate_face_mesh_from_geometry(big_geo);
+    if (mesh) {
+    scene.remove(global_computed_mesh);	
+    mesh.geometry.verticesNeedUpdate = true;
+    mesh.geometry.elementsNeedUpdate = true;        
+    mesh.geometry.colorsNeedUpdate = true;    
+    
+    global_computed_mesh = mesh;
+
+	scene.add(mesh);
+    }
     renderer.render(scene, camera);
 }
 
@@ -435,6 +543,82 @@ Link.prototype.toString = function()
 }
 
 
+// This basically needs to take the bodies, read their positions,
+// and update the geometry in the same way. Every Body has both
+// an "id" and "index" field, but I don't know how to keep the
+// association...
+function set_geometry_from_bodies(geometry,bodies)
+{
+    if (!geometry) {
+	return;
+    }
+
+    // The geometry itself does not guaratee that the
+    // vertices are de-dupped, which is a problem...
+    var n = 0;
+    geometry.vertices.forEach(function(v) {
+	if (v.cd_body) {
+	    b = v.cd_body;
+	    v.x = b.position.x;
+	    v.y = b.position.y;
+	    v.z = b.position.z;
+	} else {
+//	    console.log("UNK: "+v.id);
+	}
+    });
+/*    bodies.forEach(function(b) {
+	if (b.cd_vertex) {
+	    var vi = b.cd_vertex;
+	    n++;
+	} else {
+	    // This is apparently not a node!
+	    console.log("XXXX"+b);
+	}
+    });
+*/
+    console.log("number vertices changed = "+n);
+}
+
+function generate_face_mesh_from_geometry(geometry)
+{
+    if (!geometry) return;
+    var material = new THREE.MeshPhongMaterial( { color: 0xff5533, specular: 0x111111, shininess: 200, vertexColors: THREE.FaceColors } );
+
+    var bbox = geometry.boundingBox;
+    var a = new THREE.Vector3( 0, 0, 0 );
+    a.set( bbox.max.x + bbox.min.x, bbox.max.y + bbox.min.y, bbox.max.z + bbox.min.z);
+    a.divideScalar(2.0);
+
+    // we will actually have to store the centroid more carefull later to
+    // keep it as an "anchor" when we split models...
+    centroid = a;
+
+    for(var i = 0; i < geometry.vertices.length; i++) {
+	var dist = geometry.vertices[i].distanceTo(centroid);
+	if ((!highest) || (highest < dist)) {
+	    highest = dist;
+	}
+	if ((!lowest) || (lowest > dist)) {
+	    lowest = dist;
+	}
+    }
+    color_scale = d3_scale.scalePlasma();
+    for(var i = 0; i < geometry.faces.length; i++) {
+	// For low poly, this should take the mean!
+	var v = geometry.vertices[geometry.faces[i].a];
+	var d = (centroid.distanceTo(v)-lowest)/(highest-lowest);
+	geometry.faces[i].color.setStyle( color_scale(d) );
+    }
+    var mesh = new THREE.Mesh( geometry, material );    
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    mesh.geometry.verticesNeedUpdate = true;
+    mesh.geometry.elementsNeedUpdate = true;        
+    mesh.geometry.colorsNeedUpdate = true;    
+
+    return mesh;
+}
+
 function generate_cube_body_from_geometry(world,scene,geometry,scale_by)
 {
     var results = [];
@@ -467,22 +651,27 @@ function generate_cube_body_from_geometry(world,scene,geometry,scale_by)
 
     var vertex_index = 0;
 
-    function process_vertex(v,objects,results) {
-	console.log("v = "+v.x+", "+v.y+", "+v.z);
+    var body_cnt = 0;
+    function process_vertex(v,objects,vindex,findex,results) {
 	if (vectorToString(v) in index_map) {
-	    console.log("Found!");	    
 	    // This means that we have already created the object
-	    objects.unshift(index_map[v]);
+	    objects.unshift(index_map[vectorToString(v)][0]);
 	    // now we really don't want to have two objects...
 	    // probably we should change this function...
 	    // but we'll just not return it for now..
-//	    var pair = create_box_and_mesh(world,scene,mass,20,v,scale_by);
-//	    results.unshift([objects[0],pair[1]]);
 	} else {
 	    results.unshift(create_box_and_mesh(world,scene,mass,20,v,scale_by));
 	    objects.unshift(results[0][0]);
+	    objects[0]["cd_face"] = findex;
+	    objects[0]["cd_vertex"] = vindex;	    
 	    index_map[vectorToString(v)] = [ objects[0], vertex_index++ ];
 	}
+	if (objects[0]) {
+	    v["cd_body"] = objects[0];
+	} else {
+	    console.log("catastrophe!");
+	}
+	body_cnt++;
     };
 
     var links_map = new Map();
@@ -505,9 +694,7 @@ function generate_cube_body_from_geometry(world,scene,geometry,scale_by)
 		link.b = a;
 	    }
 	    if (link.toString() in links_map) {
-		console.log(" link is present "+ link);
 	    } else {
-		console.log(" adding link "+ link);		
 		links_map[link.toString()] = link;
 	    }
 	} else {
@@ -523,7 +710,8 @@ function generate_cube_body_from_geometry(world,scene,geometry,scale_by)
 	var v = [];
 	v[0] = geometry.vertices[geometry.faces[i].a];
 	// Indices and Vertices are used to create the trimesh...
-	process_vertex(v[0],objects,results);
+	process_vertex(v[0],objects,geometry.faces[i].a,i,results);
+
 	vertices.push(v[0].z);
 	vertices.push(v[0].y);
 	vertices.push(v[0].x);
@@ -531,7 +719,7 @@ function generate_cube_body_from_geometry(world,scene,geometry,scale_by)
 	vindex++;
 	
 	v[1] = geometry.vertices[geometry.faces[i].b];
-	process_vertex(v[1],objects,results);	
+	process_vertex(v[1],objects,geometry.faces[i].b,i,results);
 	vertices.push(v[1].z);
 	vertices.push(v[1].y);
 	vertices.push(v[1].x);
@@ -539,7 +727,7 @@ function generate_cube_body_from_geometry(world,scene,geometry,scale_by)
 	vindex++;
 	
 	v[2] = geometry.vertices[geometry.faces[i].c];
-	process_vertex(v[2],objects,results);	
+	process_vertex(v[2],objects,geometry.faces[i].c,i,results);	
 	vertices.push(v[2].z);
 	vertices.push(v[2].y);
 	vertices.push(v[2].x);
@@ -549,6 +737,38 @@ function generate_cube_body_from_geometry(world,scene,geometry,scale_by)
 	add_link_if_not_present(v[0],v[1]);
 	add_link_if_not_present(v[1],v[2]);
 	add_link_if_not_present(v[2],v[0]);
+
+/*
+	var mass = 1;
+	var body = new CANNON.Body({
+            mass: mass
+	});
+	var trimeshShape = new CANNON.Trimesh(vertices, indices);
+	body.addShape(trimeshShape);
+
+
+
+	// we actuall want to set the color based on the height!
+	var material = new THREE.MeshPhongMaterial( { color: 0xff5533, specular: 0x111111, shininess: 200, vertexColors: THREE.FaceColors } );
+	var lgeometry = new THREE.Geometry();
+
+	lgeometry.vertices.push(v[0],v[1],v[2]);
+	lgeometry.faces.push( new THREE.Face3( 0, 1, 2 ) );
+
+	var v = geometry.vertices[geometry.faces[i].a];
+
+// HACK: I despsie these global variables, make these local	
+
+	var d = (centroid.distanceTo(v)-lowest)/(highest-lowest);
+	console.log(color_scale(d));
+	lgeometry.faces[0].color.setStyle( color_scale(d) );
+	var mesh = new THREE.Mesh( lgeometry, material );
+
+	scene.add(mesh);	
+	world.add(body);
+	push_body_mesh_pair(body,mesh);
+*/
+
     }
     function distance(a,b) {
 	return Math.sqrt((a.x - b.x)*(a.x - b.x) + (a.y - b.y)*(a.y-b.y) + (a.z-b.z)*(a.z-b.z));
@@ -562,7 +782,6 @@ function generate_cube_body_from_geometry(world,scene,geometry,scale_by)
 	var a = index_map[vectorToString(link.a)][0];
 	var b = index_map[vectorToString(link.b)][0]
 	restlength = distance(link.a,link.b);
-	console.log(restlength);
 	spring.push(new CANNON.Spring(a,b,{
 	    localAnchorA: new CANNON.Vec3(0,0,0),
             localAnchorB: new CANNON.Vec3(0,0,0),
@@ -580,7 +799,11 @@ function generate_cube_body_from_geometry(world,scene,geometry,scale_by)
     });
     console.log("links.length "+ Object.size(links_map));
     console.log("faces.length "+geometry.faces.length);
-    console.log("index.map "+Object.size(index_map));        
+    console.log("index.map "+Object.size(index_map));
+    console.log("body_cnt "+body_cnt);
+    for(var i = 0; i < geometry.vertices.length; i++) {
+	console.log(geometry.vertices[i].cd_body);
+    }
     return results;
 }
 
@@ -589,9 +812,10 @@ function add_stl(world,scene) {
     var scale_by = 0.1;
     var loader = new THREE.STLLoader();
     loader.load( './models/stl/ascii/spheroid.stl', function ( geometry ) {
+//    loader.load( './models/stl/ascii/VESTAquaddec.stl', function ( geometry ) {	
 //        loader.load( './models/stl/ascii/Lowpolyellipsoid.stl', function ( geometry ) {
 //        loader.load( './models/stl/ascii/rectoid.stl', function ( geometry ) {
-	var big_geo = geometry;
+	big_geo = geometry;
 
 	var material = new THREE.MeshPhongMaterial( { color: 0xff5533, specular: 0x111111, shininess: 200, vertexColors: THREE.FaceColors } );
 
@@ -600,7 +824,7 @@ function add_stl(world,scene) {
 	a.set( bbox.max.x + bbox.min.x, bbox.max.y + bbox.min.y, bbox.max.z + bbox.min.z);
 	a.divideScalar(2.0);
 	centroid = a;
-	var highest,lowest;
+
 	for(var i = 0; i < geometry.vertices.length; i++) {
 	    var dist = geometry.vertices[i].distanceTo(centroid);
 	    if ((!highest) || (highest < dist)) {
@@ -624,7 +848,6 @@ function add_stl(world,scene) {
 	pairings.forEach(function (item) {
 	    push_body_mesh_pair(item[0],item[1]);
 	});
-
     } );
 }
 
@@ -634,12 +857,12 @@ function initCannon(scene){
     world.quatNormalizeSkip = 0;
     world.quatNormalizeFast = false;
 
-    world.gravity.set(0,-1,0);
+    world.gravity.set(0,0,0);
     world.broadphase = new CANNON.NaiveBroadphase();
 
-    add_tet_model(world,scene);
+//    add_tet_model(world,scene);
 
-    add_ground_plane(world,scene);
+//    add_ground_plane(world,scene);
 
     add_stl(world,scene);
     

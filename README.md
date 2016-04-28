@@ -78,3 +78,15 @@ Unfortunately, the mousepick functionality of the current system works with vers
 with version 76.  I will no doubt have to debug and fix that if I carry on.
 
 But let me try to get the testrahedral spike working.
+
+TODO:
+
+* Switch back to latest versions (76) of the system (who knows how much debugging that will take.)
+* Allow zoom and rotation
+* Render the mesh somehow
+* Test with the actual Asteroid data
+* Allow selecting a set of vertices for the map cutting
+* implement the cut function
+* implement the projection function
+
+
