@@ -16,11 +16,11 @@
     <body>
         <script src="./js/Three.js"></script>
         <script src="./js/Detector.js"></script>
-	<script src="./js/cannon.js"></script>	
+    <script src="./js/cannon.js"></script>
+    	<script src="./js/Projector.js"></script>	
         <script src="./js/STLLoader.js"></script>
     <script src="./js/d3-scale.min.js"></script>
-	<script src="./js/TrackballControls.js"></script>    
-
+    <script src="./js/OrbitControls.js"></script>
         <script>
 var world;
 var dt = 1 / 60;
@@ -153,8 +153,16 @@ function add_tetrahedral_springs(world,scene) {
 }
 
 
+function establish_controls(camera,container) {
+    controls = new THREE.OrbitControls( camera, container );
+    //controls.addEventListener( 'change', render ); // add this only if there is no animation loop (requestAnimationFrame)
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.25;
+    controls.enableZoom = false;
+    controls.enabled = false;
+}
 function init_scene() {
-        projector = new THREE.Projector();
+    projector = new THREE.Projector();
 
     container = document.createElement( 'div' );
     document.body.appendChild( container );
@@ -166,7 +174,13 @@ function init_scene() {
     // camera
     camera = new THREE.PerspectiveCamera( 35, window.innerWidth / window.innerHeight, 0.5, 10000 );
     camera.position.set(150, 10, 0);
+    var origin = new THREE.Vector3(0,0,0);
+    camera.lookAt(origin);
     camera.quaternion.setFromAxisAngle(new THREE.Vector3(0,1,0), (Math.PI/2));
+
+
+//    establish_controls(camera,container);
+    
     scene.add(camera);
 
     // lights
@@ -175,8 +189,8 @@ function init_scene() {
 
 
     scene.add( new THREE.HemisphereLight( 0x443333, 0x111122 ) );
-//    addShadowedLight( 1, 1, 1, 0xffffff, 1.35 );
-//    addShadowedLight( 0.5, 1, -1, 0xffaa00, 1 );
+    addShadowedLight( 1, 1, 1, 0xffffff, 1.35 );
+    addShadowedLight( 0.5, 1, -1, 0xffaa00, 1 );
     
     light = new THREE.DirectionalLight( 0xffffff, 1.75 );
     var d = 200;
@@ -184,19 +198,19 @@ function init_scene() {
     light.position.set( d, d, d );
 
     light.castShadow = true;
-    //light.shadowCameraVisible = true;
+    light.shadow.CameraVisible = true;
 
-    light.shadowMapWidth = 1024;
-    light.shadowMapHeight = 1024;
+    light.shadow.MapWidth = 1024;
+    light.shadow.MapHeight = 1024;
 
-    light.shadowCameraLeft = -d;
-    light.shadowCameraRight = d;
-    light.shadowCameraTop = d;
-    light.shadowCameraBottom = -d;
+    light.shadow.CameraLeft = -d;
+    light.shadow.CameraRight = d;
+    light.shadow.CameraTop = d;
+    light.shadow.CameraBottom = -d;
 
-    light.shadowCameraFar = 3*d;
-    light.shadowCameraNear = d;
-    light.shadowDarkness = 0.5;
+    light.shadow.CameraFar = 3*d;
+    light.shadow.CameraNear = d;
+    light.shadow.Darkness = 0.5;
 
     light = new THREE.DirectionalLight( 0xffffff, 1.75 );
     var d = 20;
@@ -204,19 +218,19 @@ function init_scene() {
     light.position.set( -d, d, -d );
 
     light.castShadow = true;
-    //light.shadowCameraVisible = true;
+    //light.shadow.CameraVisible = true;
 
-    light.shadowMapWidth = 1024;
-    light.shadowMapHeight = 1024;
+    light.shadow.MapWidth = 1024;
+    light.shadow.MapHeight = 1024;
 
-    light.shadowCameraLeft = -d;
-    light.shadowCameraRight = d;
-    light.shadowCameraTop = d;
-    light.shadowCameraBottom = -d;
+    light.shadow.CameraLeft = -d;
+    light.shadow.CameraRight = d;
+    light.shadow.CameraTop = d;
+    light.shadow.CameraBottom = -d;
 
-    light.shadowCameraFar = 3*d;
-    light.shadowCameraNear = d;
-    light.shadowDarkness = 0.5;
+    light.shadow.CameraFar = 3*d;
+    light.shadow.CameraNear = d;
+    light.shadow.Darkness = 0.5;
 
     scene.add( light );
     return scene;
@@ -243,7 +257,7 @@ function addShadowedLight( x, y, z, color, intensity ) {
 // This needs to be changed to init the floor and ground together...
 function finish_scene_preparation(schen) {
     // floor
-    geometry = new THREE.PlaneGeometry( 100, 100, 1, 1 );
+    geometry = new THREE.PlaneGeometry( 200, 200, 1, 1 );
     geometry.applyMatrix( new THREE.Matrix4().makeRotationX( -Math.PI / 2 ) );
     material = new THREE.MeshLambertMaterial( { color: 0x777777 } );
     markerMaterial = new THREE.MeshLambertMaterial( { color: 0xff0000 } );
@@ -262,7 +276,7 @@ function finish_scene_preparation(schen) {
 
     renderer.gammaInput = true;
     renderer.gammaOutput = true;
-    renderer.shadowMapEnabled = true;
+    renderer.shadowMap.Enabled = true;
 
     window.addEventListener( 'resize', onWindowResize, false );
 
@@ -270,22 +284,6 @@ function finish_scene_preparation(schen) {
     window.addEventListener("mousedown", onMouseDown, false );
     window.addEventListener("mouseup", onMouseUp, false );
 
-         // Trackball controls
-/*        controls = new THREE.TrackballControls( camera, renderer.domElement );
-        controls.rotateSpeed = 1.0;
-        controls.zoomSpeed = 1.2;
-        controls.panSpeed = 0.2;
-        controls.noZoom = false;
-        controls.noPan = false;
-        controls.staticMoving = false;
-        controls.dynamicDampingFactor = 0.3;
-        var radius = 100;
-        controls.minDistance = 0.0;
-        controls.maxDistance = radius * 1000;
-        //controls.keys = [ 65, 83, 68 ]; // [ rotateKey, zoomKey, panKey ]
-        controls.screen.width = SCREEN_WIDTH;
-        controls.screen.height = SCREEN_HEIGHT;
-*/
 }
 
 function setClickMarker(x,y,z) {
@@ -305,8 +303,24 @@ function removeClickMarker(){
 function onMouseMove(e){
     // Move and project on the plane
     if (gplane && mouseConstraint) {
+
+	var mouse3D = new THREE.Vector3( ( event.clientX / window.innerWidth ) * 2 - 1,   //x
+					 -( event.clientY / window.innerHeight ) * 2 + 1,  //y
+					 0.5 );                                            //z
+	
+	console.log(event.clientX);
+	console.log(event.clientY);	
+
+	console.log(mouse3D);	
+	mouse3D.unproject( camera );
+//        mouse3D.sub( camera.position );                
+//        mouse3D.normalize();
+	console.log(mouse3D);
+
         var pos = projectOntoPlane(e.clientX,e.clientY,gplane,camera);
+	console.log("pos"+pos);
         if(pos){
+	    console.log("pos = " + pos.x, pos.y);
             setClickMarker(pos.x,pos.y,pos.z,scene);
             moveJointToPoint(pos.x,pos.y,pos.z);
         }
@@ -320,6 +334,16 @@ function onMouseDown(e){
 //    if (e.which === 3) { // right click = 3, left click = 1
 //        alert("right click");
 //    }
+
+	var mouse3D = new THREE.Vector3( ( e.clientX / window.innerWidth ) * 2 - 1,   //x
+					 -( e.clientY / window.innerHeight ) * 2 + 1,  //y
+					 0.5 );                                            //z
+    mouse3D.unproject( camera );
+    mouse3D.sub(camera.position);
+    console.log(mouse3D);
+    mouse3D.project( camera );
+    console.log("projected");
+    console.log(mouse3D);
     
     var entity = findNearestIntersectingObject(e.clientX,e.clientY,camera,meshes);
     var pos = entity.point;
@@ -342,11 +366,23 @@ function onMouseDown(e){
 function setScreenPerpCenter(point, camera) {
     // If it does not exist, create a new one
     if(!gplane) {
-        var planeGeo = new THREE.PlaneGeometry(100,100);
-        var plane = gplane = new THREE.Mesh(planeGeo,material);
-        plane.visible = false; // Hide it..
+	// We need to be precese about what these coordinates are!
+        var planeGeo = new THREE.PlaneGeometry(400,400);
+	// Something has change in three.js, apparently ray casting only
+	// works with visible objects.  Since we are creating a plan to
+	// move the joint in, I am going to try to create an object here that makes since.
+	var plane_material = new THREE.MeshLambertMaterial( { color: 0xff0000 } );
+	plane_material.transparent = true;
+	plane_material.opacity = 0.3;
+	
+        var plane = gplane = new THREE.Mesh(planeGeo,plane_material);
+	//        plane.visible = false; // Hide it..
+	// ????
+	
         scene.add(gplane);
     }
+    gplane.visible = true;
+    gplane.name = "movementplane";
 
     // Center at mouse position
     gplane.position.copy(point);
@@ -362,6 +398,11 @@ function onMouseUp(e) {
 
     // Send the remove mouse joint to server
     removeJointConstraint();
+    gplane.visible = false;
+    gplane.name = "movementplane";
+    gplane.transparent = true;
+    gplane.opacity = 0.01;
+    
 }
 
 var lastx,lasty,last;
@@ -370,6 +411,9 @@ function projectOntoPlane(screenX,screenY,thePlane,camera) {
     var y = screenY;
     var now = new Date().getTime();
     // project mouse to that plane
+    // This is probably highly wrong...
+    // this means that we can only fold an object on itself.
+    // I think this would work if you have
     var hit = findNearestIntersectingObject(screenX,screenY,camera,[thePlane]);
     lastx = x;
     lasty = y;
@@ -379,15 +423,28 @@ function projectOntoPlane(screenX,screenY,thePlane,camera) {
     return false;
 }
 function findNearestIntersectingObject(clientX,clientY,camera,objects) {
-    // Get the picking ray from the point
-    var raycaster = getRayCasterFromScreenCoord(clientX, clientY, camera, projector);
+    var mouse3D = new THREE.Vector3( ( event.clientX / window.innerWidth ) * 2 - 1,   //x
+                                     -( event.clientY / window.innerHeight ) * 2 + 1,  //y
+                                     0.5 );                                            //z
+    
+    //    var vector = new THREE.Vector3();
+    //    vector.unproject(camera);
 
-    // Find the closest intersecting object
-    // Now, cast the ray all render objects in the scene to see if they collide. Take the closest one.
-    var hits = raycaster.intersectObjects(objects);
+    var mouse = new THREE.Vector2();
+    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1; 
+
+    var raycaster = new THREE.Raycaster();
+    raycaster.setFromCamera(mouse, camera);
+    var intersects = raycaster.intersectObjects( objects );        
+    // Change color if hit block
+    if ( intersects.length > 0 ) {
+	if (intersects[0].object.name != "movementplane") 
+	    intersects[ 0 ].object.material.color.setHex( Math.random() * 0xffffff );
+    }
     var closest = false;
-    if (hits.length > 0) {
-        closest = hits[0];
+    if (intersects.length > 0) {
+        closest = intersects[0];
     }
 
     return closest;
@@ -421,7 +478,7 @@ function onWindowResize() {
 
 function animate() {
     requestAnimationFrame( animate );
-    //controls.update();
+//    controls.update();
     updatePhysics();
     render();
 }
@@ -576,7 +633,6 @@ function set_geometry_from_bodies(geometry,bodies)
 	}
     });
 */
-    console.log("number vertices changed = "+n);
 }
 
 function generate_face_mesh_from_geometry(geometry)
@@ -760,7 +816,6 @@ function generate_cube_body_from_geometry(world,scene,geometry,scale_by)
 // HACK: I despsie these global variables, make these local	
 
 	var d = (centroid.distanceTo(v)-lowest)/(highest-lowest);
-	console.log(color_scale(d));
 	lgeometry.faces[0].color.setStyle( color_scale(d) );
 	var mesh = new THREE.Mesh( lgeometry, material );
 
@@ -801,9 +856,6 @@ function generate_cube_body_from_geometry(world,scene,geometry,scale_by)
     console.log("faces.length "+geometry.faces.length);
     console.log("index.map "+Object.size(index_map));
     console.log("body_cnt "+body_cnt);
-    for(var i = 0; i < geometry.vertices.length; i++) {
-	console.log(geometry.vertices[i].cd_body);
-    }
     return results;
 }
 
@@ -811,9 +863,9 @@ function add_stl(world,scene) {
 
     var scale_by = 0.1;
     var loader = new THREE.STLLoader();
-    loader.load( './models/stl/ascii/spheroid.stl', function ( geometry ) {
+//    loader.load( './models/stl/ascii/spheroid.stl', function ( geometry ) {
 //    loader.load( './models/stl/ascii/VESTAquaddec.stl', function ( geometry ) {	
-//        loader.load( './models/stl/ascii/Lowpolyellipsoid.stl', function ( geometry ) {
+        loader.load( './models/stl/ascii/Lowpolyellipsoid.stl', function ( geometry ) {
 //        loader.load( './models/stl/ascii/rectoid.stl', function ( geometry ) {
 	big_geo = geometry;
 
