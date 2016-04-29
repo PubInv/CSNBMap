@@ -111,6 +111,13 @@ THREE.OrbitControls = function ( object, domElement ) {
 
 	};
 
+    // HACK!  This is an addition on my part because I need to have the active state
+    // and I'm not sure I know how to do the event processing properly.
+    	this.resetStateNone = function () {
+		state = STATE.NONE;
+
+	};
+
 	// this method is exposed, but perhaps it would be better if we can make it private...
 	this.update = function() {
 
