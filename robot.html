@@ -481,13 +481,12 @@ function orientMesh( mesh, pointX, pointY )
 function updatePhysics(){
     world.step(dt);
 
-    var cnt = 0;
+    var mem_cnt = 0;
     for(var i=0; i !== bodies.length; i++){
 	var mesh = meshes[i];
 	var body = bodies[i];
 	if (bodies[i].structureKind == "member") {
-	    cnt++;
-//	    scene.remove(mesh);	    
+	    mem_cnt++;
 	    var a = body.link_a;
 	    var b = body.link_z;
 	    var ap = a.position;
@@ -497,16 +496,13 @@ function updatePhysics(){
 	    var mid = new THREE.Vector3().addVectors(ap3,bp3);
 	    mid = mid.multiplyScalar(0.5);
 	    mesh.up = new THREE.Vector3(0,0,1);//Z axis up
-//	    mesh.lookAt(bp3); 
 	    var vector = new THREE.Vector3().subVectors(ap3,bp3);
 	    var axis = new THREE.Vector3(0, 1, 0);
 	    mesh.position.copy(mid);
 	    mesh.quaternion.setFromUnitVectors(axis, vector.clone().normalize());
-//	    mesh = orientMesh(mesh,ap3,bp3);
 	    mesh.geometry.verticesNeedUpdate = true;
 	    mesh.geometry.elementsNeedUpdate = true;        
 	    mesh.geometry.colorsNeedUpdate = true;
-//	    mesh.quaternion.copy(bodies[i].quaternion);	    
 	} else {
             mesh.position.copy(bodies[i].position);
 	   mesh.quaternion.copy(bodies[i].quaternion);
@@ -515,7 +511,6 @@ function updatePhysics(){
 	mesh.geometry.elementsNeedUpdate = true;        
 	mesh.geometry.colorsNeedUpdate = true;    
     }
-    console.log("Cnt = "+cnt);
 }
 function render() {
     //    controls.update();
@@ -645,6 +640,7 @@ function generate_mesh_pairings_from_world(world,scene)
     var vertex_index = 0;
 
     var body_cnt = 0;
+    var mem_cnt = 0;
     // This is not yet physically modeling our system.
     var size = 2.0;
     function process_vertex(joint,v,results) {
@@ -686,9 +682,11 @@ function generate_mesh_pairings_from_world(world,scene)
 	mesh.position.set(a.position.x,a.position.y+20,a.position.z);
 	mesh.castShadow = true;
 	mesh.receiveShadow = true;
-	results.unshift([link.body,mesh]);	
+	results.unshift([link.body,mesh]);
+	mem_cnt++;
     }
     console.log("body_cnt "+body_cnt);
+    console.log("mem_cnt "+mem_cnt);    
     return results;
 }
 
@@ -747,7 +745,7 @@ function load_NTetGlussBot(world,tets) {
 	robot_joints.push(boxBody);
 	world.add(boxBody);
 
-	for(var k = 0; k < Math.min(3,i-1); k++) {
+	for(var k = 0; k <= Math.min(3,i) && k < i; k++) {
 	    var h = i-(k+1);
 	    console.log(i+" to "+h);
 	    add_member_spring(robot_joints[h],robot_joints[i],world);
@@ -778,7 +776,7 @@ function load_NTetGlussBot(world,tets) {
 function add_robot(world,scene) {
 
     var scale_by = 0.1;
-    load_NTetGlussBot(world,1);
+    load_NTetGlussBot(world,20);
     var pairings = generate_mesh_pairings_from_world(world,scene);
     for(var i = 0; i < pairings.length; i++) {
 	scene.add(pairings[i][1]);
