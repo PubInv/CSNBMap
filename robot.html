@@ -443,16 +443,79 @@ function animate() {
     render();
 }
 
+var cylinderMesh = function( pointX, pointY )
+{
+    // edge from X to Y
+    var direction = new THREE.Vector3().subVectors( pointY, pointX );
+    var arrow = new THREE.ArrowHelper( direction, pointX );
+
+    // cylinder: radiusAtTop, radiusAtBottom, 
+    //     height, radiusSegments, heightSegments
+    var edgeGeometry = new THREE.CylinderGeometry( 2, 2, direction.length(), 6, 4 );
+
+    var edge = new THREE.Mesh( edgeGeometry, 
+        new THREE.MeshBasicMaterial( { color: 0xff00ff } ) );
+    edge.rotation = arrow.rotation.clone();
+    edge.position = new THREE.Vector3().addVectors( pointX, direction.multiplyScalar(0.5) );
+    return edge;
+}
+
+// orientMesh from X to Y at Midpoint
+function orientMesh( mesh, pointX, pointY )
+{
+    // edge from X to Y
+    var direction = new THREE.Vector3().subVectors( pointY, pointX );
+    var arrow = new THREE.ArrowHelper( direction, pointX );
+
+    // cylinder: radiusAtTop, radiusAtBottom, 
+    //     height, radiusSegments, heightSegments
+    var edgeGeometry = new THREE.CylinderGeometry( 2, 2, direction.length(), 6, 4 );
+
+//     var edge = new THREE.Mesh( edgeGeometry, 
+//        new THREE.MeshBasicMaterial( { color: 0xff00ff } ) );
+    mesh.position = new THREE.Vector3().addVectors( pointX, direction.multiplyScalar(0.5) );
+    mesh.rotation = arrow.rotation.clone();
+    return mesh;
+}
+
 function updatePhysics(){
     world.step(dt);
+
+    var cnt = 0;
     for(var i=0; i !== bodies.length; i++){
 	var mesh = meshes[i];
-        mesh.position.copy(bodies[i].position);
-        mesh.quaternion.copy(bodies[i].quaternion);
+	var body = bodies[i];
+	if (bodies[i].structureKind == "member") {
+	    cnt++;
+//	    scene.remove(mesh);	    
+	    var a = body.link_a;
+	    var b = body.link_z;
+	    var ap = a.position;
+	    var bp = b.position;
+	    var ap3 = new THREE.Vector3(ap.x,ap.y,ap.z);
+	    var bp3 = new THREE.Vector3(bp.x,bp.y,bp.z);
+	    var mid = new THREE.Vector3().addVectors(ap3,bp3);
+	    mid = mid.multiplyScalar(0.5);
+	    mesh.up = new THREE.Vector3(0,0,1);//Z axis up
+//	    mesh.lookAt(bp3); 
+	    var vector = new THREE.Vector3().subVectors(ap3,bp3);
+	    var axis = new THREE.Vector3(0, 1, 0);
+	    mesh.position.copy(mid);
+	    mesh.quaternion.setFromUnitVectors(axis, vector.clone().normalize());
+//	    mesh = orientMesh(mesh,ap3,bp3);
+	    mesh.geometry.verticesNeedUpdate = true;
+	    mesh.geometry.elementsNeedUpdate = true;        
+	    mesh.geometry.colorsNeedUpdate = true;
+//	    mesh.quaternion.copy(bodies[i].quaternion);	    
+	} else {
+            mesh.position.copy(bodies[i].position);
+	   mesh.quaternion.copy(bodies[i].quaternion);
+	}
 	mesh.geometry.verticesNeedUpdate = true;
 	mesh.geometry.elementsNeedUpdate = true;        
 	mesh.geometry.colorsNeedUpdate = true;    
     }
+    console.log("Cnt = "+cnt);
 }
 function render() {
     //    controls.update();
@@ -571,101 +634,63 @@ function update_three_js_from_bodies(scene,bodies)
     }
 }
 
-function generate_face_mesh_from_geometry(geometry)
+function generate_mesh_pairings_from_world(world,scene)
 {
-    if (!geometry) return;
-    var material = new THREE.MeshPhongMaterial( { color: 0xff5533, specular: 0x111111, shininess: 200, vertexColors: THREE.FaceColors } );
-
-    var bbox = geometry.boundingBox;
-    var a = new THREE.Vector3( 0, 0, 0 );
-    a.set( bbox.max.x + bbox.min.x, bbox.max.y + bbox.min.y, bbox.max.z + bbox.min.z);
-    a.divideScalar(2.0);
-
-    // we will actually have to store the centroid more carefull later to
-    // keep it as an "anchor" when we split models...
-    centroid = a;
-
-    for(var i = 0; i < geometry.vertices.length; i++) {
-	var dist = geometry.vertices[i].distanceTo(centroid);
-	if ((!highest) || (highest < dist)) {
-	    highest = dist;
-	}
-	if ((!lowest) || (lowest > dist)) {
-	    lowest = dist;
-	}
-    }
-    color_scale = d3_scale.scalePlasma();
-    for(var i = 0; i < geometry.faces.length; i++) {
-	// For low poly, this should take the mean!
-	var v = geometry.vertices[geometry.faces[i].a];
-	var d = (centroid.distanceTo(v)-lowest)/(highest-lowest);
-	geometry.faces[i].color.setStyle( color_scale(d) );
-
-
-	
-    }
-    var mesh = new THREE.Mesh( geometry, material );    
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-    mesh.geometry.verticesNeedUpdate = true;
-    mesh.geometry.elementsNeedUpdate = true;        
-    mesh.geometry.colorsNeedUpdate = true;    
-
-    return mesh;
-}
-
-// function generate_mesh_pairings_from_world(world,scene)
-// {
-//     var results = [];
+    var results = [];
     
-//     var vindex = 0;
-//     var mass = 1;
-//     var index_map = {};
+    var vindex = 0;
+    var mass = 1;
+    var index_map = {};
 
-//     var vertex_index = 0;
+    var vertex_index = 0;
 
-//     var body_cnt = 0;
-//     // This is not yet physically modeling our system.
-//     var size = 2.0;
-//     function process_vertex(joint,v,results) {
-// 	var cubeGeo = new THREE.BoxGeometry( size,size,size );
-// 	var cubeMaterial = new THREE.MeshPhongMaterial( { color: 0x0000ff } );
-// 	var mesh = new THREE.Mesh(cubeGeo, cubeMaterial);
-// 	mesh.castShadow = true;
-// 	mesh.receiveShadow = true;
-// //	scene.add(mesh);
-// 	results.unshift([joint,mesh]);
-// 	body_cnt++;
-//     };
+    var body_cnt = 0;
+    // This is not yet physically modeling our system.
+    var size = 2.0;
+    function process_vertex(joint,v,results) {
+	var cubeGeo = new THREE.BoxGeometry( size,size,size );
+	var cubeMaterial = new THREE.MeshPhongMaterial( { color: 0x0000ff } );
+	var mesh = new THREE.Mesh(cubeGeo, cubeMaterial);
+	mesh.castShadow = true;
+	mesh.receiveShadow = true;
+//	scene.add(mesh);
+	results.unshift([joint,mesh]);
+	body_cnt++;
+    };
 
-//     var links_map = new Map();
-//     var links = [];
+    var links_map = new Map();
+    var links = [];
 
-//     // To add the springs we want to have the links_map computed
-//     // This should really be computed from the robot somehow...
-//     // So we iterate over the world, looking for the
-//     // objects which are robot joints.
+    // To add the springs we want to have the links_map computed
+    // This should really be computed from the robot somehow...
+    // So we iterate over the world, looking for the
+    // objects which are robot joints.
 
-//     for(var i = 0; i < robot_joints.length; i++) {
-// 	var joint = robot_joints[i];
-// 	process_vertex(joint,joint.position,results);
-//     }
+    for(var i = 0; i < robot_joints.length; i++) {
+	var joint = robot_joints[i];
+	process_vertex(joint,joint.position,results);
+    }
 
-//     var w = 1.0;
-//     for(var link in robot_members) {
-// 	var a = link.a;
-// 	var b = link.b;
-// 	var h = link.a.distanTo(b.position);
-// 	var cubeGeo = new THREE.BoxGeometry( w,h,w );
-// 	var cubeMaterial = new THREE.MeshPhongMaterial( { color: 0xff0000 } );
-// 	var mesh = new THREE.Mesh(cubeGeo, cubeMaterial);
-// 	mesh.castShadow = true;
-// 	mesh.receiveShadow = true;
-// 	results.unshift([v,mesh]);	
-//     }
-//     console.log("body_cnt "+body_cnt);
-//     return results;
-// }
+
+    // This in fact needs to be a lot more complicated...but one step at a time.
+    var w = 1.0;
+    for(var lin in robot_members) {
+	var link = robot_members[lin];
+	var a = link.a;
+	var b = link.b;
+	var h = link.a.position.distanceTo(b.position);
+	var cubeGeo = new THREE.BoxGeometry( w,h,w );
+	var cubeMaterial = new THREE.MeshPhongMaterial( { color: 0xff0000 } );
+
+	var mesh = new THREE.Mesh(cubeGeo, cubeMaterial);
+	mesh.position.set(a.position.x,a.position.y+20,a.position.z);
+	mesh.castShadow = true;
+	mesh.receiveShadow = true;
+	results.unshift([link.body,mesh]);	
+    }
+    console.log("body_cnt "+body_cnt);
+    return results;
+}
 
 
 function ccw_tetrahelix_vertex(n,edge_length) {
@@ -693,7 +718,6 @@ function add_member_spring(a,b,world) {
 	spring.applyForce();
     });
 
-//    world.add(spring);
 }
 
 function load_NTetGlussBot(world,tets) {
@@ -724,8 +748,29 @@ function load_NTetGlussBot(world,tets) {
 	world.add(boxBody);
 
 	for(var k = 0; k < Math.min(3,i-1); k++) {
-	    console.log(i+" to "+i-(k+1));
-	    add_member_spring(robot_joints[i-(k+1)],robot_joints[i],world);
+	    var h = i-(k+1);
+	    console.log(i+" to "+h);
+	    add_member_spring(robot_joints[h],robot_joints[i],world);
+
+	    // Okay, here I also want to add a new body to represent the actuator
+	    // This may require some roation math, but for now let me just put it
+	    // in the cetner
+	    var memBody = new CANNON.Body({ mass: mass });
+	    var b_z = robot_joints[i];
+	    var b_a = robot_joints[h];
+	    var v_z = b_z.position;
+	    var v_avg = v_z.vadd(b_a.position);
+	    v_avg.scale(0.5);
+	    memBody.position = v_avg;
+	    memBody.mass = 1;
+	    memBody.angularDamping = 0.9;
+	    memBody.linearDamping = 0.9;
+	    var link = { a: b_a, b: b_z, body: memBody};
+	    robot_members.push(link);
+	    memBody.structureKind = "member";
+	    memBody.link_a = b_a;
+	    memBody.link_z = b_z;
+	    world.add(memBody);
 	}
     }
 }
@@ -733,7 +778,7 @@ function load_NTetGlussBot(world,tets) {
 function add_robot(world,scene) {
 
     var scale_by = 0.1;
-    load_NTetGlussBot(world,3);
+    load_NTetGlussBot(world,1);
     var pairings = generate_mesh_pairings_from_world(world,scene);
     for(var i = 0; i < pairings.length; i++) {
 	scene.add(pairings[i][1]);
