@@ -18,7 +18,8 @@
         <script src="./js/Detector.js"></script>
     <script src="./js/cannon.js"></script>
     	<script src="./js/Projector.js"></script>	
-        <script src="./js/STLLoader.js"></script>
+    <script src="./js/STLLoader.js"></script>
+    <script src="https://d3js.org/d3.v3.min.js" charset="utf-8"></script>    
     <script src="./js/d3-scale.min.js"></script>
     <script src="./js/OrbitControls.js"></script>
         <script>
@@ -480,7 +481,7 @@ function orientMesh( mesh, pointX, pointY )
 
 function updatePhysics(){
     world.step(dt);
-
+    var color_scale = d3_scale.scalePlasma();
     var mem_cnt = 0;
     for(var i=0; i !== bodies.length; i++){
 	var mesh = meshes[i];
@@ -500,6 +501,16 @@ function updatePhysics(){
 	    var axis = new THREE.Vector3(0, 1, 0);
 	    mesh.position.copy(mid);
 	    mesh.quaternion.setFromUnitVectors(axis, vector.clone().normalize());
+	    var len = ap.distanceTo(bp);
+	    var cd3 = d3.rgb(color_scale(len/(2*edge_length)));
+
+	    // TODO: This needs to be computed from the real min and max, which I haven't set up yet.
+	    var d = len/(2*edge_length);
+	    
+	    for(var j = 0; j < mesh.geometry.faces.length; j++) {
+		mesh.geometry.faces[j].color.setStyle( color_scale(d) );
+	    }
+
 	    mesh.geometry.verticesNeedUpdate = true;
 	    mesh.geometry.elementsNeedUpdate = true;        
 	    mesh.geometry.colorsNeedUpdate = true;
@@ -676,7 +687,8 @@ function generate_mesh_pairings_from_world(world,scene)
 	var b = link.b;
 	var h = link.a.position.distanceTo(b.position);
 	var cubeGeo = new THREE.BoxGeometry( w,h,w );
-	var cubeMaterial = new THREE.MeshPhongMaterial( { color: 0xff0000 } );
+	var cubeMaterial = new THREE.MeshPhongMaterial( { color: 0xff5533, specular: 0x111111, shininess: 200, vertexColors: THREE.FaceColors } );
+
 
 	var mesh = new THREE.Mesh(cubeGeo, cubeMaterial);
 	mesh.position.set(a.position.x,a.position.y+20,a.position.z);
@@ -718,6 +730,9 @@ function add_member_spring(a,b,world) {
 
 }
 
+// TODO: can't be so cavalier with this when I set the physical geometry
+var edge_length = 10;
+
 function load_NTetGlussBot(world,tets) {
 
     // Okay, so here we need to create the geometry of the tetrahelix.
@@ -730,7 +745,6 @@ function load_NTetGlussBot(world,tets) {
     // Vn = (r cos(n*theta), r sin(n*theta), n*h)
 
     var n = tets+3;
-    var edge_length = 10;
     var member_radius = edge_length/ 20;
     var mass = 1.0;
     for(var i = 0; i < n; i++) {
@@ -776,7 +790,7 @@ function load_NTetGlussBot(world,tets) {
 function add_robot(world,scene) {
 
     var scale_by = 0.1;
-    load_NTetGlussBot(world,20);
+    load_NTetGlussBot(world,1);
     var pairings = generate_mesh_pairings_from_world(world,scene);
     for(var i = 0; i < pairings.length; i++) {
 	scene.add(pairings[i][1]);
@@ -837,6 +851,7 @@ function addMouseConstraint(x,y,z,body) {
 function moveJointToPoint(x,y,z) {
     // Move the joint body to a new position
     jointBody.position.set(x,y,z);
+    // Could we here change the member lengths appropriately?
     mouseConstraint.update();
 }
 
