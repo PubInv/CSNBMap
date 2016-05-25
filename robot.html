@@ -22,8 +22,10 @@
     <script src="https://d3js.org/d3.v3.min.js" charset="utf-8"></script>    
     <script src="./js/d3-scale.min.js"></script>
     <script src="./js/OrbitControls.js"></script>
+     <script type="text/javascript" src="../js/dat.gui.js"></script> 
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.4/jquery.min.js"></script>
         <script>
-var world;
+    var world;
 var dt = 1 / 60;
 
 var constraintDown = false;
@@ -46,6 +48,9 @@ var container, camera, scene, renderer, projector;
 var meshes=[], bodies=[];
 
 var global_computed_mesh;
+
+var sceneOrtho = new THREE.Scene();
+var cameraOrtho = new THREE.OrthographicCamera( 0, window.innerWidth, window.innerHeight, 0, - 10, 10 );
 
 // This file is a significant departure from the
 // one that I create it from, which operated on
@@ -77,6 +82,10 @@ var robot_members = [];
 // This is a map of the robot links.
 var links_map = [];
 
+var getTexture = function () {
+    var texture = new THREE.TextureLoader("./logo-tight.png");
+    return texture;
+}
 
 function push_body_mesh_pair(body,mesh) {
     meshes.push(mesh);
@@ -115,6 +124,26 @@ function create_boxes(world,scene) {
 
 
 
+function render_label_in_dom(text,x,y) {
+    var child = container.appendChild(document.createElement('p'));    
+    child.innerHTML = text;
+    child.setAttribute("style", "z-index: 100; position: absolute; color: yellow; left: "+x+"px; top: "+y+"py;");
+    //    child.setAttribute("style", "z-index: 100; position: absolute; color: yellow; left: "+200+"px; top: "+300+"py;");    
+}
+
+function render_labels_in_dom(labels) {
+    for(var i = 0; i < labels.length; i++) {
+	render_label_in_dom(labels[i][0],labels[i][1],labels[i][2]);
+    }
+}
+function render_example_labels_in_dom() {
+    var labels = [["AAA",100,100],
+		  ["BBB",200,200],
+		  ["CCC",300,300]
+		 ];
+    render_labels_in_dom(labels);
+}
+
 function establish_controls(camera,container) {
     controls = new THREE.OrbitControls( camera, container );
     //controls.addEventListener( 'change', render ); // add this only if there is no animation loop (requestAnimationFrame)
@@ -130,6 +159,16 @@ function init_scene() {
     container = document.createElement( 'div' );
     document.body.appendChild( container );
 
+    container.style.position = 'absolute';
+    container.style.zIndex = 1;    // if you still don't see the label, try uncommenting this
+
+    container.style.backgroundColor = "blue";
+
+    //    render_label_in_dom("hello",200,200);    
+    //    clear_text();
+
+    
+    
     // scene
     scene = new THREE.Scene();
     scene.fog = new THREE.Fog( 0x000000, 500, 10000 );
@@ -196,6 +235,37 @@ function init_scene() {
     light.shadow.Darkness = 0.5;
 
     scene.add( light );
+
+
+        var controls = new function () {
+            this.size = 100;
+            this.sprite = 0;
+            this.transparent = true;
+            this.opacity = 0.6;
+            this.color = 0xffffff;
+            this.rotateSystem = true;
+
+
+            this.redraw = function () {
+                sceneOrtho.children.forEach(function (child) {
+                    if (child instanceof THREE.Sprite) sceneOrtho.remove(child);
+                })
+
+               createSpriteText(controls.size, controls.transparent, controls.opacity, controls.color);
+            };
+        }
+
+        var gui = new dat.GUI();
+        gui.add(controls, 'sprite', 0, 4).step(1).onChange(controls.redraw);
+        gui.add(controls, 'size', 0, 120).onChange(controls.redraw);
+        gui.add(controls, 'transparent').onChange(controls.redraw);
+        gui.add(controls, 'opacity', 0, 1).onChange(controls.redraw);
+        gui.addColor(controls, 'color').onChange(controls.redraw);
+
+
+//        controls.redraw();
+    
+    
     return scene;
 }
 
@@ -220,23 +290,25 @@ function addShadowedLight( x, y, z, color, intensity ) {
 // This needs to be changed to init the floor and ground together...
 function finish_scene_preparation(schen) {
     // floor
-//    geometry = new THREE.PlaneGeometry( 200, 200, 1, 1 );
-//    geometry.applyMatrix( new THREE.Matrix4().makeRotationX( -Math.PI / 2 ) );
+    //    geometry = new THREE.PlaneGeometry( 200, 200, 1, 1 );
+    //    geometry.applyMatrix( new THREE.Matrix4().makeRotationX( -Math.PI / 2 ) );
     material = new THREE.MeshLambertMaterial( { color: 0x777777 } );
     markerMaterial = new THREE.MeshLambertMaterial( { color: 0xff0000 } );
-//    THREE.ColorUtils.adjustHSV( material.color, 0, 0, 0.9 );
-//    mesh = new THREE.Mesh( geometry, material );
-//    mesh.castShadow = true;
-//    mesh.quaternion.setFromAxisAngle(new THREE.Vector3(1,0,0), -Math.PI / 2);
-//    mesh.receiveShadow = true;
-//    scene.add(mesh);
+    //    THREE.ColorUtils.adjustHSV( material.color, 0, 0, 0.9 );
+    //    mesh = new THREE.Mesh( geometry, material );
+    //    mesh.castShadow = true;
+    //    mesh.quaternion.setFromAxisAngle(new THREE.Vector3(1,0,0), -Math.PI / 2);
+    //    mesh.receiveShadow = true;
+    //    scene.add(mesh);
 
     renderer = new THREE.WebGLRenderer( { antialias: true } );
     renderer.setSize( window.innerWidth, window.innerHeight );
     renderer.setClearColor( scene.fog.color );
 
+
     container.appendChild( renderer.domElement );
 
+    
     renderer.gammaInput = true;
     renderer.gammaOutput = true;
     renderer.shadowMap.Enabled = true;
@@ -272,8 +344,8 @@ function onMouseMove(e){
 					 0.5 );                                            //z
 	
 	mouse3D.unproject( camera );
-//        mouse3D.sub( camera.position );                
-//        mouse3D.normalize();
+	//        mouse3D.sub( camera.position );                
+	//        mouse3D.normalize();
 
         var pos = projectOntoPlane(e.clientX,e.clientY,gplane,camera);
         if(pos){
@@ -285,15 +357,15 @@ function onMouseMove(e){
 
 function onMouseDown(e){
     // Find mesh from a ray
-  console.log(e); // you can inspect the click event
+    console.log(e); // you can inspect the click event
 
-//    if (e.which === 3) { // right click = 3, left click = 1
-//        alert("right click");
-//    }
+    //    if (e.which === 3) { // right click = 3, left click = 1
+    //        alert("right click");
+    //    }
 
-	var mouse3D = new THREE.Vector3( ( e.clientX / window.innerWidth ) * 2 - 1,   //x
-					 -( e.clientY / window.innerHeight ) * 2 + 1,  //y
-					 0.5 );                                            //z
+    var mouse3D = new THREE.Vector3( ( e.clientX / window.innerWidth ) * 2 - 1,   //x
+				     -( e.clientY / window.innerHeight ) * 2 + 1,  //y
+				     0.5 );                                            //z
     mouse3D.unproject( camera );
     mouse3D.sub(camera.position);
     console.log(mouse3D);
@@ -428,18 +500,18 @@ function onWindowResize() {
     //controls.handleResize();
     renderer.setSize( window.innerWidth, window.innerHeight );
 
-         SCREEN_WIDTH = window.innerWidth;
-        SCREEN_HEIGHT = window.innerHeight;
+    SCREEN_WIDTH = window.innerWidth;
+    SCREEN_HEIGHT = window.innerHeight;
 
-//        controls.screen.width = SCREEN_WIDTH;
-//        controls.screen.height = SCREEN_HEIGHT;
+    //        controls.screen.width = SCREEN_WIDTH;
+    //        controls.screen.height = SCREEN_HEIGHT;
 
-        camera.radius = ( SCREEN_WIDTH + SCREEN_HEIGHT ) / 4;
+    camera.radius = ( SCREEN_WIDTH + SCREEN_HEIGHT ) / 4;
 }
 
 function animate() {
     requestAnimationFrame( animate );
-//    controls.update();
+    //    controls.update();
     updatePhysics();
     render();
 }
@@ -455,7 +527,7 @@ var cylinderMesh = function( pointX, pointY )
     var edgeGeometry = new THREE.CylinderGeometry( 2, 2, direction.length(), 6, 4 );
 
     var edge = new THREE.Mesh( edgeGeometry, 
-        new THREE.MeshBasicMaterial( { color: 0xff00ff } ) );
+			       new THREE.MeshBasicMaterial( { color: 0xff00ff } ) );
     edge.rotation = arrow.rotation.clone();
     edge.position = new THREE.Vector3().addVectors( pointX, direction.multiplyScalar(0.5) );
     return edge;
@@ -472,17 +544,40 @@ function orientMesh( mesh, pointX, pointY )
     //     height, radiusSegments, heightSegments
     var edgeGeometry = new THREE.CylinderGeometry( 2, 2, direction.length(), 6, 4 );
 
-//     var edge = new THREE.Mesh( edgeGeometry, 
-//        new THREE.MeshBasicMaterial( { color: 0xff00ff } ) );
+    //     var edge = new THREE.Mesh( edgeGeometry, 
+    //        new THREE.MeshBasicMaterial( { color: 0xff00ff } ) );
     mesh.position = new THREE.Vector3().addVectors( pointX, direction.multiplyScalar(0.5) );
     mesh.rotation = arrow.rotation.clone();
     return mesh;
+}
+function clear_text() {
+    $("p").remove();
 }
 
 function updatePhysics(){
     world.step(dt);
     var color_scale = d3_scale.scalePlasma();
     var mem_cnt = 0;
+    var controls = new function () {
+            this.size = 100;
+            this.sprite = 0;
+            this.transparent = true;
+            this.opacity = 0.6;
+        this.colorize = 0xffffff;
+	this.textcolor = "yellow";
+            this.rotateSystem = true;
+
+
+        this.redraw = function (x,y) {
+                sceneOrtho.children.forEach(function (child) {
+                    if (child instanceof THREE.Sprite) sceneOrtho.remove(child);
+                })
+
+	    createSpriteText(x,y,controls.size, controls.transparent, controls.opacity, controls.textcolor,controls.colorize);
+            };
+        }
+    controls.redraw(1000,1000);
+    
     for(var i=0; i !== bodies.length; i++){
 	var mesh = meshes[i];
 	var body = bodies[i];
@@ -500,24 +595,30 @@ function updatePhysics(){
 	    var vector = new THREE.Vector3().subVectors(ap3,bp3);
 	    var axis = new THREE.Vector3(0, 1, 0);
 	    mesh.position.copy(mid);
+
 	    mesh.quaternion.setFromUnitVectors(axis, vector.clone().normalize());
+
 	    var len = ap.distanceTo(bp);
 	    var cd3 = d3.rgb(color_scale(len/(2*edge_length)));
 
 	    // TODO: This needs to be computed from the real min and max, which I haven't set up yet.
 	    var d = len/(2*edge_length);
+	    var geometry = mesh.geometry;
 	    
-	    for(var j = 0; j < mesh.geometry.faces.length; j++) {
-		mesh.geometry.faces[j].color.setStyle( color_scale(d) );
+	    for(var j = 0; j < geometry.faces.length; j++) {
+		geometry.faces[j].color.setStyle( color_scale(d) );
 	    }
 
 	    mesh.geometry.verticesNeedUpdate = true;
 	    mesh.geometry.elementsNeedUpdate = true;        
 	    mesh.geometry.colorsNeedUpdate = true;
+
 	} else {
             mesh.position.copy(bodies[i].position);
-	   mesh.quaternion.copy(bodies[i].quaternion);
+	    mesh.quaternion.copy(bodies[i].quaternion);
 	}
+
+	
 	mesh.geometry.verticesNeedUpdate = true;
 	mesh.geometry.elementsNeedUpdate = true;        
 	mesh.geometry.colorsNeedUpdate = true;    
@@ -525,9 +626,34 @@ function updatePhysics(){
 }
 function render() {
     //    controls.update();
-//    update_three_js_from_bodies(scene,bodies);
+    //    update_three_js_from_bodies(scene,bodies);
     
     renderer.render(scene, camera);
+
+    //    stats.update();
+
+    //    camera.position.y = Math.sin(step += 0.01) * 20;
+
+    sceneOrtho.children.forEach(function (e) {
+        if (e instanceof THREE.Sprite) {
+            // move the sprite along the bottom
+//            e.position.x = e.position.x + e.velocityX;
+            if (e.position.x > window.innerWidth) {
+                e.velocityX = -1;
+                //controls.sprite=(controls.sprite++)%5;
+ //               console.log(controls.sprite++);
+		//                e.material.uvOffset.set(1 / 5 * (controls.sprite % 4), 0);
+              }
+            if (e.position.x < 0) {
+                e.velocityX = 1;
+            }
+        }
+    });
+
+    requestAnimationFrame(render);
+    renderer.autoClear = false;
+    renderer.render(sceneOrtho, cameraOrtho);
+    
 }
 
 // our goal here is to make sure that we are adding both the THREE and
@@ -547,6 +673,8 @@ function add_ground_plane(world,scene) {
 
     // Create a plane
     var groundShape = new CANNON.Plane();
+    var floor_position = -50;
+    groundShape.position = new CANNON.Vec3(0,0,floor_position);
     var groundBody = new CANNON.Body({ mass: 0 });
     groundBody.addShape(groundShape);
     groundBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1,0,0),-Math.PI/2);
@@ -554,6 +682,7 @@ function add_ground_plane(world,scene) {
     
     // floor
     geometry = new THREE.PlaneGeometry( 100, 100, 1, 1 );
+    geometry.postion = new THREE.Vector3(0,0,floor_position);
     //geometry.applyMatrix( new THREE.Matrix4().makeRotationX( -Math.PI / 2 ) );
     material = new THREE.MeshLambertMaterial( { color: 0x777777 } );
     markerMaterial = new THREE.MeshLambertMaterial( { color: 0xff0000 } );
@@ -583,7 +712,7 @@ function create_box_and_mesh(world,scene,mass,size,v,scale_by) {
     
     world.add(boxBody);
     
-//    var bbox = geometry.boundingBox;
+    //    var bbox = geometry.boundingBox;
 
     
     mesh.castShadow = true;
@@ -605,21 +734,18 @@ Object.size = function(obj) {
 };
 
 
-function Link() 
-{
-}
-
 function vectorToString(v) {
     return "["+v.x+","+v.y+","+v.z+"]";
 }
 // toString override added to prototype of Foo class
-Link.prototype.toString = function()
+/* Link.prototype.toString = function()
 {
     
     return "{ a: "+vectorToString(this.a)+","+
 	"b: "+vectorToString(this.b)+"}";
 }
 
+*/
 
 // This basically needs to take the bodies, read their positions,
 // and update the geometry in the same way. Every Body has both
@@ -660,7 +786,7 @@ function generate_mesh_pairings_from_world(world,scene)
 	var mesh = new THREE.Mesh(cubeGeo, cubeMaterial);
 	mesh.castShadow = true;
 	mesh.receiveShadow = true;
-//	scene.add(mesh);
+	//	scene.add(mesh);
 	results.unshift([joint,mesh]);
 	body_cnt++;
     };
@@ -715,18 +841,21 @@ function add_member_spring(a,b,world) {
     var stiffness = 10;
     var damping = 0.3;
     restlength = a.position.distanceTo(b.position);
-    var spring = new CANNON.Spring(a,b,{
-	localAnchorA: new CANNON.Vec3(0,0,0),
-        localAnchorB: new CANNON.Vec3(0,0,0),
-        restLength : restlength,
-        stiffness : stiffness,
-	damping : damping
-    });
+    // var spring = new CANNON.Spring(a,b,{
+    // 	localAnchorA: new CANNON.Vec3(0,0,0),
+    //     localAnchorB: new CANNON.Vec3(0,0,0),
+    //     restLength : restlength,
+    //     stiffness : stiffness,
+    // 	damping : damping
+    // });
 
-        // Compute the force after each step
-    world.addEventListener("postStep",function(event){
-	spring.applyForce();
-    });
+    var c = new CANNON.DistanceConstraint(a,b,restlength);
+    world.addConstraint(c);
+
+    // Compute the force after each step
+    // world.addEventListener("postStep",function(event){
+    // 	spring.applyForce();
+    // });
 
 }
 
@@ -759,7 +888,7 @@ function load_NTetGlussBot(world,tets) {
 	robot_joints.push(boxBody);
 	world.add(boxBody);
 
-	for(var k = 0; k <= Math.min(3,i) && k < i; k++) {
+	for(var k = 0; k < Math.min(3,i) && k < i; k++) {
 	    var h = i-(k+1);
 	    console.log(i+" to "+h);
 	    add_member_spring(robot_joints[h],robot_joints[i],world);
@@ -790,13 +919,13 @@ function load_NTetGlussBot(world,tets) {
 function add_robot(world,scene) {
 
     var scale_by = 0.1;
-    load_NTetGlussBot(world,1);
+    load_NTetGlussBot(world,3);
     var pairings = generate_mesh_pairings_from_world(world,scene);
     for(var i = 0; i < pairings.length; i++) {
 	scene.add(pairings[i][1]);
     }
-	
-	// The timing here is making this asynchronous, which is not ideal...
+    
+    // The timing here is making this asynchronous, which is not ideal...
     pairings.forEach(function (item) {
 	push_body_mesh_pair(item[0],item[1]);
     });
@@ -811,6 +940,10 @@ function initCannon(){
     world.gravity.set(0,0,0);
     world.broadphase = new CANNON.NaiveBroadphase();
 
+    var item = add_ground_plane(world,scene)
+    scene.add(item[1]);
+    push_body_mesh_pair(item[0],item[1]);
+    
     // This would be better as a function that
     // returns a robot, but I am dependent on some sort of
     // geometry for the construction of the robot..
@@ -839,9 +972,16 @@ function addMouseConstraint(x,y,z,body) {
     // Move the cannon click marker particle to the click position
     jointBody.position.set(x,y,z);
 
+    // Now we want to disable all attached length constraints (and actually add others)
+    for(var i = 0; i < world.constraints.length; i++) {
+	var c = world.constraints[i];
+	c.disable();
+    }
+
     // Create a new constraint
     // The pivot for the jointBody is zero
     mouseConstraint = new CANNON.PointToPointConstraint(constrainedBody, pivot, jointBody, new CANNON.Vec3(0,0,0));
+    mouseConstraint.attachedBody = body;
 
     // Add the constriant to world
     world.addConstraint(mouseConstraint);
@@ -851,15 +991,124 @@ function addMouseConstraint(x,y,z,body) {
 function moveJointToPoint(x,y,z) {
     // Move the joint body to a new position
     jointBody.position.set(x,y,z);
+
+
+    var body = mouseConstraint.attachedBody;
+    
+    var w = 1.0;
+
+    var color_scale = d3_scale.scalePlasma();    
+    
+    for(var i = 0; i < bodies.length; i++) {
+	var bx = bodies[i];
+	var mx = meshes[i];
+	if (bx.structureKind == "member") {
+	    var a = bx.link_a;
+	    var b = bx.link_z;
+
+	    if ((a == body) || ( b == body)) {
+		// HERE is where we must deal with the mesh changing sizes, not in update physics.
+		var ap = a.position;
+		var bp = b.position;
+		var len = ap.distanceTo(bp);
+		
+		var cd3 = d3.rgb(color_scale(len/(2*edge_length)));
+		
+		// TODO: This needs to be computed from the real min and max, which I haven't set up yet.
+		var d = len/(2*edge_length);
+		
+		var h = a.position.distanceTo(b.position);
+		var cubeGeo = new THREE.BoxGeometry( w,h,w );
+		var cubeMaterial = new THREE.MeshPhongMaterial( { color: 0xff5533, specular: 0x111111, shininess: 200, vertexColors: THREE.FaceColors } );
+
+		var mesh = new THREE.Mesh(cubeGeo, cubeMaterial);
+
+		scene.remove(meshes[i]);
+		scene.add(mesh);
+		meshes[i] = mesh;
+		
+		mesh.position.set(a.position.x,a.position.y,a.position.z);
+		mesh.castShadow = true;
+		mesh.receiveShadow = true;
+	    }
+	}
+    }	
+    
+    for(var j = 0; j < mesh.geometry.faces.length; j++) {
+	mesh.geometry.faces[j].color.setStyle( color_scale(d) );
+    }
+
+    mesh.geometry.verticesNeedUpdate = true;
+    mesh.geometry.elementsNeedUpdate = true;        
+    mesh.geometry.colorsNeedUpdate = true;
+
     // Could we here change the member lengths appropriately?
     mouseConstraint.update();
 }
 
-function removeJointConstraint(){
+function removeJointConstraint() {
     // Remove constriant from world
     world.removeConstraint(mouseConstraint);
+    // Now we want to disable all attached length constraints (and actually add others)
+    var body = mouseConstraint.attachedBody;
+    
+    for(var i = 0; i < world.constraints.length; i++) {
+	var c = world.constraints[i];
+	c.enable();
+	if ((c.bodyA == body) || (c.bodyB == body)) {
+	    world.removeConstraint(c);
+	    var restlength = c.bodyA.position.distanceTo(c.bodyB.position);
+	    var nc = new CANNON.DistanceConstraint(c.bodyA,c.bodyB,restlength);
+	    //	    world.addConstraint(nc);
+	}
+    }
+    
     mouseConstraint = false;
 }
+
+
+function createSpriteText(x,y,size, transparent, opacity, textcolor, colorize) {
+    var fontsize = 128;
+    var message = "spudalicious!";
+
+    var ctx, texture, sprite, spriteMaterial, 
+        canvas = document.createElement('canvas');
+    ctx = canvas.getContext('2d');
+    ctx.font = fontsize + "px Arial";
+
+        // setting canvas width/height before ctx draw, else canvas is empty
+    canvas.width = ctx.measureText(message).width;
+    canvas.height = fontsize * 2; // fontsize * 1.5
+
+        // after setting the canvas width/height we have to re-set font to apply!?! looks like ctx reset
+    ctx.font = fontsize + "px Arial";        
+    //    ctx.fillStyle = "rgba(255,0,255,1)";
+    //    ctx.fillStyle = "rgb(255,0,255)";
+    ctx.fillStyle = textcolor;        
+    ctx.fillText(message, 0, fontsize);
+
+    texture = new THREE.Texture(canvas);
+    texture.minFilter = THREE.LinearFilter; // NearestFilter;
+    texture.needsUpdate = true;
+
+    var spriteMaterial = new THREE.SpriteMaterial({
+	opacity: opacity,
+	color: colorize,
+        transparent: transparent,
+	map : texture});
+    
+    spriteMaterial.scaleByViewport = true;
+    spriteMaterial.blending = THREE.AdditiveBlending;
+
+    var sprite = new THREE.Sprite(spriteMaterial);
+    
+    sprite.scale.set(size, size, size);
+    sprite.position.set(x, y, 0);
+//    sprite.velocityX = 1;
+
+    sceneOrtho.add(sprite);
+}
+
 
 
 
